@@ -22,17 +22,20 @@ class AudioFileWalker:
     def __init__(self, roots=None, files=None):
         """
         recursively find audio files from `roots` and/or collect audio_files passed in `files`
-        @param roots: a single path (string, os.Path) or an Iterable of paths
-                      from which to collect audio files recursively
-        @param files: a single path (string, os.Path) or an Iterable of paths
-        N.B. : any file whose extension isn't in AudioFileWalker.AUDIO_EXTENSIONS will be ignored,
-        regardless whether it was found recursively or passed through the `files` argument.
 
-        AudioFileWalker implements `__iter__`, hence files can be retrieved in different ways.
-        For instance so:
-        ```
-        files = list(AudioFileWalker(roots=some_roots, files=some_files))
-        ```
+        Parameters
+        ----------
+        roots : a single path (string, os.Path) or an Iterable of paths from which to collect audio files recursively
+        files : a single path (string, os.Path) or an Iterable of paths
+
+        Examples
+        --------
+        >>> files = list(AudioFileWalker(roots="./my-directory", files=["sound.mp3"]))
+
+        Notes
+        ------
+        any file whose extension isn't in AudioFileWalker.AUDIO_EXTENSIONS will be ignored,
+        regardless whether it was found recursively or passed through the `files` argument.
         """
         generators = []
 
