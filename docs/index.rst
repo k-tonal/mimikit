@@ -1,21 +1,26 @@
 .. mimikit documentation master file, created by
-   sphinx-quickstart on Thu Jan  7 06:40:54 2021.
+   sphinx-quickstart on Fri Jan  8 04:24:18 2021.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to mimikit's documentation!
-===================================
+mimikit
+=======
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
+.. toctree::
+   :maxdepth: 1
+   :caption: User Guide
 
-.. automodule:: mimikit.data.factory
-   :members:
+.. toctree::
+   :maxdepth: 1
+   :caption: API Reference
 
-Indices and tables
-==================
+   data
+   freqnet
+   kit
 
 * :ref:`genindex`
 * :ref:`modindex`

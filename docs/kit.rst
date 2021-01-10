@@ -1,0 +1,4 @@
+Kit
+===
+
+.. automodule:: mimikit.kit

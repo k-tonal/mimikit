@@ -3,6 +3,7 @@
 *.ipynb_checkpoints*
 dist/*
 build/*
-_build/*
+docs/_*
+docs/generated
 *egg-info*
 site/*

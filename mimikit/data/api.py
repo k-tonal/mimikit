@@ -12,8 +12,31 @@ from ..data.data_object import DataObject
 
 
 class FeatureProxy(object):
+    """
+    Interface to the numerical data (array) stored in a .h5 file created with mimikit.
 
-    def __init__(self, h5_file, ds_name):
+    Parameters
+    ----------
+    h5_file : str
+        name of the file
+    ds_name : str
+        name of the ``h5py.Dataset`` containing the data
+
+    Attributes
+    ----------
+    N : int
+        the length of the first dimension of the underlying array
+    shape : tuple of int
+        the shape of the underlying array
+    attrs : dict
+        dictionary of additional information about the data as returned
+        by the ``extract_func`` passed to ``make_root_db``.
+        Typically, this is where you want to store the parameters of your extracting function, e.g.
+        sample rate, hop length etc.
+    """
+
+    def __init__(self, h5_file: str, ds_name: str):
+
         self.h5_file = h5_file
         self.name = ds_name
         with h5py.File(h5_file, "r") as f:
@@ -49,7 +72,27 @@ class FeatureProxy(object):
 
 
 class Database(object):
-    def __init__(self, h5_file):
+    """
+    interface to .h5 databases created by mimikit
+
+    Parameters
+    ----------
+    h5_file : str
+        path to the .h5 file containing the data
+
+    Attributes
+    ----------
+    metadata : Metadata
+        pandas DataFrame where each row contains information about one stored file.
+        see ``Metadata`` for more information
+
+    <feature_proxy> : FeatureProxy
+        each feature created by the extracting function passed to ``make_root_db``
+        is automatically added as attribute. If the extracting function returned a feature
+        by the name ``"fft"``, the attribute ``fft`` of type ``FeatureProxy`` will be automatically
+        added when the file is loaded and you will be able to access it through ``db.fft``.
+    """
+    def __init__(self, h5_file: str):
         self.h5_file = h5_file
         self.info = self._get_dataframe("/info")
         self.metadata = Metadata(self._get_dataframe("/metadata"))
@@ -153,7 +196,29 @@ def add_data(h5_file, ds_name, array, filename):
     return rv
 
 
-def upload_database(db, api_token, project_name, experiment_name):
+def upload_database(db: Database,
+                    api_token: str,
+                    project_name: str,
+                    experiment_name: str):
+    """
+    upload a Database object to neptune.ai by adding it to the artifacts of a new experiment
+
+    Parameters
+    ----------
+    db : Database
+        a Database object bound to the .h5 file you want to upload
+    api_token : str
+        your neptune API token
+    project_name : str
+        the name of the neptune project where you want to upload the db.
+        This is always of the form ``"account/project"``
+    experiment_name : str
+        the name you want to give to the experiment that will be created
+
+    Returns
+    -------
+
+    """
     session = Session.with_default_backend(api_token=api_token)
     data_project = session.get_project(project_name)
     feature = [name for name in db.features if "label" not in name][0]
@@ -169,7 +234,29 @@ def upload_database(db, api_token, project_name, experiment_name):
     return exp.stop()
 
 
-def download_database(api_token, full_exp_path, database_name, destination="./"):
+def download_database(api_token: str,
+                      full_exp_path: str,
+                      database_name: str,
+                      destination: str = "./"):
+    """
+    download a .h5 database file from a neptune.ai Experiment
+
+    Parameters
+    ----------
+    api_token : str
+        your neptune API token
+    full_exp_path : str
+        the full path to the experiment, i.e. ``"account/project/experiment-id"``
+    database_name : str
+        name of the .h5 file (artifact) to be downloaded
+    destination : str, optional
+        where you want to store the downloaded file on your system
+
+    Returns
+    -------
+    Database
+
+    """
     session = Session.with_default_backend(api_token=api_token)
     namespace, project, exp_id = full_exp_path.split("/")
     project_name = namespace + "/" + project

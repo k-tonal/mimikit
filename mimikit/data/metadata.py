@@ -3,20 +3,20 @@ import numpy as np
 
 
 def ssts(item, axis=0):
-    """
-    Start-Stop To Slices
-    @param item: a pd.DataFrame with a "start" and a "stop" column (typically the metadata of a db)
-    @param axis:
-    @return: 1d array of slices for retrieving each element in `item`
-    """
     arr = np.atleast_2d(item[['start', 'stop']].values)
     slices = map(lambda a: (*[slice(0, None)] * axis, slice(a[0], a[1]), ), arr)
     return slices
 
 
 class Metadata(pd.DataFrame):
+    """
+    subclass of ``pandas.DataFrame`` to store a slice structure. This is handy when concatenating arrays
 
-    # OVERRIDES
+    Instances of ``Metadata`` created by the constructors mentioned below will automatically have
+    three columns : "start", "stop", "duration".
+
+    :no-inherited-members:
+    """
 
     @property
     def _constructor(self):
