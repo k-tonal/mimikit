@@ -9,11 +9,17 @@ import shutil
 from mimikit.kit.get_trainer import get_trainer
 from mimikit.kit.loggers import MMKDefaultLogger
 from mimikit.kit.checkpoint import MMKCheckpoint
+from mimikit.connectors.neptune import NeptuneConnector
 
 
 class DummyModel:
     # to simulate the only attribute we need in get_trainer
     hparams = {}
+
+
+# patch environment variable for the Neptune Connector
+NeptuneConnector.NEPTUNE_TOKEN_KEY = "NEPTUNE_CONNECTOR_TEST_KEY"
+os.environ[NeptuneConnector.NEPTUNE_TOKEN_KEY] = "kjh429873wkejh234"
 
 
 class Case:
@@ -32,13 +38,16 @@ class Case:
     @property
     def trainer(self):
         if self._trainer is None:
+            if self.neptune_project is not None:
+                connector = NeptuneConnector(user="account", setup={"model": self.neptune_project})
+            else:
+                connector = None
             self._trainer = get_trainer(model=DummyModel(),
                                         root_dir=self.root_dir,
                                         version=self.version,
                                         resume_from_checkpoint=self.resume_from_checkpoint,
                                         epochs=self.epochs,
-                                        neptune_api_token=self.neptune_api_token,
-                                        neptune_project=self.neptune_project,
+                                        neptune_connector=connector,
                                         **self.kwargs
                                         )
         return self._trainer
@@ -65,11 +74,8 @@ class Case:
     def should_raise_version_TypeError(self):
         return not isinstance(self.version, int) and self.version is not None
 
-    def should_raise_neptune_ValueError(self):
-        return (self.neptune_api_token is None) != (self.neptune_project is None)
-
     def should_have_neptune_logger(self):
-        return not self.should_raise_neptune_ValueError() and self.neptune_project is not None and \
+        return self.neptune_project is not None and \
                self.kwargs.get("logger", None) is not False
 
     def should_resume(self):
@@ -147,8 +153,7 @@ paths_grid = ParameterGrid([
         "epochs": [None, 2, [2, 4]],
         # neptune args are fake, we monkeypatch the class later
         # so that in runs offline and ignores them
-        "neptune_api_token": [None, "ANONYMOUS"],
-        "neptune_project": [None, "account/project"],
+        "neptune_project": [None, "project"],
         "kwargs": [dict(logger=False, callbacks=[MMKCheckpoint("./", 1)]),
                    dict(logger=MMKDefaultLogger("./", 0))]
     }
@@ -183,10 +188,6 @@ def test_get_trainer(init_case):
     # first get the exceptions cases
     if case.should_raise_version_TypeError():
         with pytest.raises(TypeError):
-            assert case.trainer is None
-        return
-    if case.should_raise_neptune_ValueError():
-        with pytest.raises(ValueError):
             assert case.trainer is None
         return
 

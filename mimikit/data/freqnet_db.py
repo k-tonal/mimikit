@@ -4,12 +4,12 @@ FreqNet Database
 """
 
 import argparse
-import os
 from functools import partial
-from itertools import tee
 from multiprocessing import cpu_count
 
-from mimikit.data import Database, make_root_db, file_to_fft, AudioFileWalker, upload_database
+from . import Database, make_root_db, file_to_fft, AudioFileWalker
+from ..connectors.neptune import NeptuneConnector
+
 
 parser = argparse.ArgumentParser(prog="freqnet-db",
                                  description="transform found audio files to FFTs with specified parameters and put "
@@ -34,10 +34,10 @@ parser.add_argument("--hop-length", "-o",
 parser.add_argument("--sample-rate", "-s",
                     type=int, default=22050,
                     help="the sample rate used to transform the files (default=22050)")
-parser.add_argument("--neptune-project", '-p',
+parser.add_argument("--neptune-path", '-p',
                     type=str, default=None,
-                    help="name of the neptune.ai project you wish to upload the db to (requires that you stored your"
-                         " neptune api token in the environment of this script)")
+                    help="path to the neptune.ai project or experiment you wish to upload the db to"
+                         " (requires that you stored your neptune api token in the environment of this script)")
 
 
 def freqnet_db(target,
@@ -46,7 +46,7 @@ def freqnet_db(target,
                n_fft=2048,
                hop_length=512,
                sample_rate=22050,
-               neptune_project=None):
+               neptune_path=None):
     """
     transform found audio files to STFTs with specified parameters and put
     them in a .h5 ``Database``
@@ -70,18 +70,19 @@ def freqnet_db(target,
         the hop length used to transform the files (default is 512)
     sample_rate : int, optional
         the sample rate used to transform the files (default is 22050)
-    neptune_project : str or None, optional
+    neptune_path : str or None, optional
         name of the neptune.ai project you wish to upload the db to.
+        `neptune_path` is expected to be of the form `"username/project"`.
         Requires that you stored your neptune api token in the environment.
 
     Returns
     -------
-    Database
-
+    db : Database
+        the created db
     """
     namespace = argparse.Namespace(target=target, roots=roots, files=files, n_fft=n_fft,
                                    hop_length=hop_length, sample_rate=sample_rate,
-                                   neptune_project=neptune_project)
+                                   neptune_path=neptune_path)
     main(namespace)
     return Database(target)
 
@@ -97,15 +98,16 @@ def main(namespace=None):
                         sr=args.sample_rate)
     if args.roots is None and args.files is None:
         args.roots = "./"
-    walker = AudioFileWalker()
-    walker, backup = tee(walker)
-    print("Found following audio files :", "\n", *["\t" + file + "\n" for file in list(backup)])
+    walker = AudioFileWalker(roots=args.roots, files=args.files)
+    print("Found following audio files :", "\n", *["\t" + file + "\n" for file in list(walker)])
     print("Making the database...")
     make_root_db(args.target, roots=args.roots, files=args.files, extract_func=transform, n_cores=cpu_count()//2)
 
-    if args.neptune_project is not None:
-        token = os.environ["NEPTUNE_API_TOKEN"]
+    if args.neptune_path is not None:
+        path = args.neptune_path.split("/")
+        user, rest = path[0], "/".join(path[1:]) if path[-1] is not None else path[1]
+        connector = NeptuneConnector(user=user, setup={"db": rest})
         db = Database(args.target)
         print("uploading database to neptune...")
-        upload_database(db, token, args.neptune_project, args.target)
+        connector.upload_database("db", db)
     print("done!")

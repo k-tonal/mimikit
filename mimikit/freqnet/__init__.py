@@ -5,4 +5,3 @@ from .freqnet import FreqNet
 from .frexpert_mixture import FrexpertMixture
 from .layer_wise_loss import LayerWiseLossFreqNet
 from .hierarchical_kernel import HKFreqNet
-from .freqnet_db import freqnet_db

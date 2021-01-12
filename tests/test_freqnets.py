@@ -1,8 +1,36 @@
+import pytest
 import numpy as np
 import torch
+import soundfile
 
 from mimikit.kit import get_trainer
 from mimikit.freqnet import *
+from mimikit.data import freqnet_db
+
+
+@pytest.fixture
+def audio_tree(tmp_path):
+    root = (tmp_path / "audios")
+    root.mkdir()
+    dir1 = (root / "dir1")
+    dir1.mkdir()
+    dir2 = (root / "dir2")
+    dir2.mkdir()
+    extensions = [".aif",
+                  ".wav",
+                  ".mp3",
+                  ".aiff",
+                  ".notaudio",
+                  ""]
+    tests = [np.random.randn(10000) for _ in range(len(extensions))]
+    for i, arr, ext in zip(range(len(extensions)), tests, extensions):
+        soundfile.write(str([dir1, dir2][i % 2]) + "/test" + str(i) + ext, arr, 22050, 'PCM_24', format="WAV")
+    return str(root)
+
+
+def test_freqnet_db(audio_tree):
+    db = freqnet_db(audio_tree + "/test_db.h5", roots=audio_tree)
+    assert db is not None
 
 
 def test_base(tmp_path):

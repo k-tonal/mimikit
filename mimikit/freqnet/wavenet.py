@@ -6,7 +6,8 @@ import os
 
 from . import FreqNet
 from .modules.io import PermuteTF
-from ..data import Database, make_root_db, upload_database
+from ..data import Database, make_root_db
+from ..kit import NeptuneConnector
 from ..data.transforms import file_to_qx
 
 
@@ -15,7 +16,7 @@ def wavenet_db(target,
                files=None,
                mu=255,
                sample_rate=22050,
-               neptune_project=None):
+               neptune_path=None):
     transform = partial(file_to_qx,
                         mu=mu,
                         sr=sample_rate)
@@ -23,11 +24,13 @@ def wavenet_db(target,
         roots = "./"
     make_root_db(target, roots=roots, files=files, extract_func=transform, n_cores=cpu_count() // 2)
 
-    if neptune_project is not None:
-        token = os.environ["NEPTUNE_API_TOKEN"]
+    if neptune_path is not None:
+        path = neptune_path.split("/")
+        user, rest = path[0], "/".join(path[1:]) if path[-1] is not None else path[1]
+        connector = NeptuneConnector(user=user, setup={"db": rest})
         db = Database(target)
         print("uploading database to neptune...")
-        upload_database(db, token, neptune_project, target)
+        connector.upload_database("db", db)
     print("done!")
     return Database(target)
 

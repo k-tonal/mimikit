@@ -21,12 +21,14 @@ class AudioFileWalker:
 
     def __init__(self, roots=None, files=None):
         """
-        recursively find audio files from `roots` and/or collect audio_files passed in `files`
+        recursively find audio files from `roots` and/or collect audio files passed in `files`
 
         Parameters
         ----------
-        roots : a single path (string, os.Path) or an Iterable of paths from which to collect audio files recursively
-        files : a single path (string, os.Path) or an Iterable of paths
+        roots : str or list of str
+            a single path (string, os.Path) or an Iterable of paths from which to collect audio files recursively
+        files : str or list of str
+            a single path (string, os.Path) or an Iterable of paths
 
         Examples
         --------
@@ -83,9 +85,6 @@ class AudioFileWalker:
 
 
 def sizeof_fmt(num, suffix='b'):
-    """
-    straight from https://stackoverflow.com/questions/1094841/reusable-library-to-get-human-readable-version-of-file-size
-    """
     for unit in ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z']:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
@@ -111,15 +110,21 @@ def split_path(path):
 
 def file_to_db(abs_path, extract_func=default_extract_func, mode="w"):
     """
-    if mode == "r+" this will either:
-        - raise an Exception if the feature already exists
-        - concatenate data along the "feature_axis", assuming that each feature correspond to the same file
-          or file collections.
-          If you want to concatenate dbs along the "file_axis" consider using `concatenate_dbs(..)`
-    @param abs_path:
-    @param extract_func:
-    @param mode:
-    @return:
+    apply `extract_func` to `abs_path` and write the result in a .h5 file
+
+    Parameters
+    ----------
+    abs_path : str
+        path to the file to be extracted
+    extract_func : function
+        the function to use for the extraction - should take exactly one argument
+    mode : str
+        the mode to use when opening the .h5 file. default is "w".
+
+    Returns
+    -------
+    created : str
+        the name of the created .h5 file
     """
     print("making db for %s" % abs_path)
     tmp_db = os.path.splitext(abs_path)[0] + ".h5"
@@ -259,8 +264,33 @@ def aggregate_dbs(target, dbs, mode="w", remove_sources=False):
 
 
 def make_root_db(db_name, roots='./', files=None, extract_func=default_extract_func,
-                 n_cores=cpu_count(), remove_sources=True):
+                 n_cores=cpu_count()):
+    """
+    extract and aggregate several files into a .h5 Database
+
+    Parameters
+    ----------
+    db_name : str
+        the name of the db to be created
+    roots : str or list of str, optional
+        directories from which to search recursively for audio files.
+        default is "./"
+    files : str or list of str, optional
+        single file(s) to include in the db.
+        default is `None`
+    extract_func : function, optional
+        the function to use for the extraction - should take exactly one argument.
+        the default transforms the file to a stft with n_fft=2048 and hop_length=512.
+    n_cores : int, optional
+        the number of cores to use to parallelize the extraction process.
+        default is the number of available cores on the system.
+
+    Returns
+    -------
+    db : Database
+        the created db
+    """
     walker = AudioFileWalker(roots, files)
     dbs = make_db_for_each_file(walker, extract_func, n_cores)
-    aggregate_dbs(db_name, dbs, "w", remove_sources)
+    aggregate_dbs(db_name, dbs, "w", True)
     return Database(db_name)

@@ -9,16 +9,62 @@ from pytorch_lightning.trainer import Trainer
 import warnings
 
 
-def get_trainer(model=None,
-                root_dir=None,
+def get_trainer(root_dir=None,
                 version=None,
                 resume_from_checkpoint=None,
                 epochs=None,  # add MMKCheckpoint if not None
-                neptune_api_token=None,  # add NeptuneLogger if not None
-                neptune_project=None,
-                neptune_exp_id=None,
+                model=None,
+                neptune_connector=None,
                 **kwargs):
+    """
+    pre-configure a `pytorch_lightning.Trainer` and returns it.
 
+    Parameters
+    ----------
+    root_dir : str, optional
+        the directory where all the files created during training will be saved. If `None` it defaults to `'./'`.
+    version : int, optional
+        an optional version number. This creates a sub-directory structure of the form root_dir/version_i/
+        - the value `-1` creates a new version dynamically by finding the greatest
+          version number in `root_dir` and adding `1`.
+        - any other specific `int` creates/overwrites the version for this `int`.
+        - `None` bypasses versioning
+    resume_from_checkpoint : str, optional
+        path to a checkpoint you want to resume training from.
+    epochs : int or list of ints, optional
+        - if int : checkpoints will be saved every int epochs
+        - if list of ints : checkpoints will be saved at those specific ints
+        > Note : a final checkpoint will always be saved at the end of the training and if you interrupt the training
+                manually with a `KeyboardInterrupt`.
+    model : pytorch_lightning.LightningModule, optional
+        the model you will train. Only required when `neptune_connector` is not None
+    neptune_connector : NeptuneConnector, optional
+        if this argument is set, a `NeptuneLogger` will be created and you will be able to store your model and its logs
+        on neptune.ai
+    kwargs
+        additional keywords arguments are passed directly to the `Trainer`.
+        see https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#trainer-class-api
+
+    Returns
+    -------
+    trainer : pytorch_lightning.Trainer
+
+    Notes
+    -----
+    1. Differences to the default Trainer in lightning are :
+        - we add an `EpochProgressBarCallback`
+        - the `progress_bar_refresh_rate` is set to `20` which avoids spurious crashes in colab
+        - `num_sanity_val_steps` is set to 0
+        - the number of `gpus` is set to automatically be the number of devices `torch` discovered.
+        - a default `MMKDefaultLogger` will be added to the loggers if you don't pass `loggers=False` in the `kwargs.
+          It is a subclass of a `TestTubeLogger` from `lightning` and will save its files in `root_dir/logs`
+
+    Raises
+    ------
+    TypeError if `version` is neither `None` nor an `int`.
+
+    ValueError if `neptune_connector` is not `None` while `model` is.
+    """
     # Figure out the root_dir
     if root_dir is None:
         if resume_from_checkpoint is not None:
@@ -46,25 +92,25 @@ def get_trainer(model=None,
         next_version = 0
         default_root_dir = root_dir
 
-    # Figure out loggers
-    if (neptune_api_token is None) != (neptune_project is None):
-        raise ValueError("Expected `neptune_project` and `neptune_api_token` to both be either None or not None")
-
     user_logger = kwargs.get("logger", None)
     loggers = []
 
-    if neptune_api_token is not None:
+    if neptune_connector is not None:
         if model is None:
             raise ValueError("Expected `model` not to be None in order to create a neptune.Experiment")
-        loggers.append(NeptuneLogger(neptune_api_token, neptune_project, params=model.hparams,
-                                     experiment_name=default_root_dir, experiment_id=neptune_exp_id))
+        api_token = neptune_connector.api_token
+        path = neptune_connector.path('model', split=True)
+        project = "/".join(path[:2])
+        exp_id = path[-1]
+        loggers.append(NeptuneLogger(api_token, project, params=model.hparams,
+                                     experiment_name=default_root_dir, experiment_id=exp_id))
     if user_logger is None:
         loggers.append(MMKDefaultLogger(default_root_dir, next_version))
     elif user_logger:
         loggers.append(user_logger)
     else:  # it is falsy and the user DOESN'T want logging
         loggers = False
-        if neptune_api_token is not None:
+        if neptune_connector is not None:
             warnings.warn("You provided arguments to instantiate a NeptuneLogger but set `logger=False` in the kwargs. "
                           "The latter resulting in turning any logging off, your experiment won't be logged to neptune.")
 

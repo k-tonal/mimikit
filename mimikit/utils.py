@@ -1,23 +1,14 @@
 import librosa
 import numpy as np
 from librosa.display import specshow
-import matplotlib.pyplot as plt
 import IPython.display as ipd
-import torch
+import matplotlib.pyplot as plt
+
 from .data.transforms import HOP_LENGTH, SR
 
 # Conversion
 
-normalize = librosa.util.normalize
 a2db = lambda S: librosa.amplitude_to_db(abs(S), ref=S.max())
-s2f = librosa.samples_to_frames
-s2t = librosa.samples_to_time
-f2s = librosa.frames_to_samples
-f2t = librosa.frames_to_time
-t2f = librosa.time_to_frames
-t2s = librosa.time_to_samples
-hz2m = librosa.hz_to_midi
-m2hz = librosa.midi_to_hz
 
 
 # Debugging utils
@@ -36,7 +27,7 @@ def signal(S, hop_length=HOP_LENGTH):
     if S.dtype in (np.complex64, np.complex128):
         return librosa.istft(S, hop_length=hop_length)
     else:
-        return librosa.griffinlim(S, hop_length=hop_length, n_iter=64)
+        return librosa.griffinlim(S, hop_length=hop_length, n_iter=32)
 
 
 def audio(S, hop_length=HOP_LENGTH, sr=SR):
@@ -48,17 +39,6 @@ def audio(S, hop_length=HOP_LENGTH, sr=SR):
             return ipd.display(ipd.Audio(np.zeros(hop_length*2), rate=sr))
     else:
         return ipd.display(ipd.Audio(S, rate=sr))
-
-
-def playlist(iterable):
-    for seg in iterable:
-        audio(seg)
-    return
-
-
-def playthrough(iterable, axis=1):
-    rv = np.concatenate(iterable, axis=axis)
-    return audio(rv)
 
 
 def show(S, figsize=(), db_scale=True, title="", **kwargs):
@@ -75,29 +55,3 @@ def show(S, figsize=(), db_scale=True, title="", **kwargs):
     plt.title(title)
     return ax
 
-
-# Array <==> Tensor ops :
-
-def numcpu(y):
-    if isinstance(y, torch.Tensor):
-        if y.requires_grad:
-            return y.detach().cpu().numpy()
-        return y.cpu().numpy()
-    else:  # tuples
-        return tuple(numcpu(x) for x in y)
-
-
-def cuda_if_available():
-    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-
-def to_torch(x, device=cuda_if_available()):
-    if isinstance(x, np.ndarray):
-        return torch.from_numpy(x).float().to(device)
-    elif isinstance(x, torch.Tensor):
-        if x.device == device:
-            return x.float()
-        else:
-            return x.float().to(device)
-    else:  # tuples
-        return tuple(to_torch(y) for y in x)

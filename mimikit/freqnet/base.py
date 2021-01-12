@@ -233,6 +233,8 @@ class FreqNetModel(MMKHooks,
             generated = generated.transpose(1, 2).squeeze()
             generated = librosa.griffinlim(generated.cpu().numpy(), hop_length=hop_length, n_iter=64)
             generated = torch.from_numpy(generated)
+        else:  # for consistency with time_domain :
+            generated = generated.cpu()
         self.to(initial_device)
         self.train() if was_training else None
         return generated.unsqueeze(0)

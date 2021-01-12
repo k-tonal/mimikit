@@ -25,7 +25,7 @@ class LoggingHooks:
     def neptune_experiment(self):
         """ short hand to access own NeptuneExperiment"""
         exps = [exp for exp in self.logger.experiment
-               if isinstance(exp, NeptuneExperiment)]
+                if isinstance(exp, NeptuneExperiment)]
         if any(exps):
             return exps[0]
         return None
@@ -97,7 +97,8 @@ class LoggingHooks:
         path = os.path.join(root, filename)
         if ".wav" != os.path.splitext(path)[-1]:
             path = path + ".wav"
-        audio_tensor = audio_tensor.squeeze().detach().cpu().numpy()
+        if isinstance(audio_tensor, torch.Tensor):
+            audio_tensor = audio_tensor.squeeze().detach().cpu().numpy()
         sf.write(path, audio_tensor, sample_rate, 'PCM_24')
         exps = [] if experiments is None else experiments
         exps += self.logger.experiment if getattr(self, "logger", False) else []
@@ -125,7 +126,6 @@ def _check_version(other_v):
 
 
 class MMKHooks:
-
     _loaded_checkpoint = None
 
     @classmethod
@@ -190,24 +190,3 @@ class MMKHooks:
                 checkpoint["lr_schedulers"] = optim_state["lr_schedulers"]
 
         return checkpoint
-
-    def upload_to_neptune(self, root_dir=None, experiment=None, artifacts=("states", "logs", "audios")):
-        if root_dir is None:
-            if getattr(self, "trainer", None) is None:
-                raise ValueError("expected to either have a 'trainer' attribute or `root_dir` to be a"
-                                 " valid path to a model's root directory. Both were None.")
-            else:
-                root_dir = self.trainer.default_root_dir
-        if experiment is None:
-            if not any(isinstance(exp, NeptuneExperiment) for exp in self.logger.experiment):
-                raise ValueError("`experiment` is None and this model isn't bound to any NeptuneExperiment...")
-            experiment = [exp for exp in self.logger.experiment if isinstance(exp, NeptuneExperiment)][0]
-        # log everything!
-        for directory in os.listdir(root_dir):
-            if directory in artifacts:
-                artifact = os.path.join(root_dir, directory)
-                experiment.log_artifact(artifact, directory)
-                print("successfully uploaded", artifact, "to", experiment.id)
-        return 1
-
-

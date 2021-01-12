@@ -1,10 +1,9 @@
 [run]
 source =
-    mmk
-    tests
+    mimikit
 branch = True
 omit =
-    mmk/cli.py
+    mimikit/cli.py
 
 [report]
 exclude_lines =

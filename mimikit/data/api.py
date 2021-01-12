@@ -4,7 +4,6 @@ import pandas as pd
 import os
 from datetime import datetime
 
-from neptune import Session
 from torch.utils.data.dataset import Subset
 
 from .metadata import Metadata
@@ -54,6 +53,27 @@ class FeatureProxy(object):
         return rv
 
     def get(self, metadata):
+        """
+        get the data (numpy array) corresponding to the rows of `metadata`
+
+        Parameters
+        ----------
+        metadata : Metadata
+            the files you want to get as array
+
+        Returns
+        -------
+        data : np.ndarray
+            the concatenated data for all the requested files
+
+        Examples
+        --------
+        >>>from mimikit import Database
+        >>>db = Database("my-db.h5")
+        # only get files 0, 3 & 7
+        >>>db.fft.get(db.metadata.iloc[[0, 3, 7]])
+
+        """
         t_axis = self.attrs.get("time_axis", 0)
         slices = metadata.slices(t_axis)
         return np.concatenate(tuple(self[slice_i] for slice_i in slices), axis=t_axis)
@@ -63,6 +83,20 @@ class FeatureProxy(object):
         return new
 
     def subset(self, indices):
+        """
+        transform self into a torch `Subset` (`Dataset`) containing only `indices` from the original data
+
+        Parameters
+        ----------
+        indices : Metadata or any object that `Subset` accepts as indices
+            if `indices` is of type `Metadata`, the returned `Subset` will only contain the files (rows) present
+            in `indices`.
+
+        Returns
+        -------
+        subset : torch.utils.data.Subset
+            the obtained subset
+        """
         if isinstance(indices, Metadata):
             indices = indices.all_indices
         return Subset(DataObject(self), indices)
@@ -194,73 +228,3 @@ def add_data(h5_file, ds_name, array, filename):
         rv = f[ds_name][-N:]
     add_metadata(h5_file, M, N + M, N, ds_name, filename)
     return rv
-
-
-def upload_database(db: Database,
-                    api_token: str,
-                    project_name: str,
-                    experiment_name: str):
-    """
-    upload a Database object to neptune.ai by adding it to the artifacts of a new experiment
-
-    Parameters
-    ----------
-    db : Database
-        a Database object bound to the .h5 file you want to upload
-    api_token : str
-        your neptune API token
-    project_name : str
-        the name of the neptune project where you want to upload the db.
-        This is always of the form ``"account/project"``
-    experiment_name : str
-        the name you want to give to the experiment that will be created
-
-    Returns
-    -------
-
-    """
-    session = Session.with_default_backend(api_token=api_token)
-    data_project = session.get_project(project_name)
-    feature = [name for name in db.features if "label" not in name][0]
-    feat_prox = getattr(db, feature)
-    params = {"name": experiment_name,
-              "feature_name": feature,
-              "shape": feat_prox.shape,
-              "files": len(db.metadata)}
-    params.update(feat_prox.attrs)
-    exp = data_project.create_experiment(name=experiment_name,
-                                         params=params)
-    exp.log_artifact(db.h5_file)
-    return exp.stop()
-
-
-def download_database(api_token: str,
-                      full_exp_path: str,
-                      database_name: str,
-                      destination: str = "./"):
-    """
-    download a .h5 database file from a neptune.ai Experiment
-
-    Parameters
-    ----------
-    api_token : str
-        your neptune API token
-    full_exp_path : str
-        the full path to the experiment, i.e. ``"account/project/experiment-id"``
-    database_name : str
-        name of the .h5 file (artifact) to be downloaded
-    destination : str, optional
-        where you want to store the downloaded file on your system
-
-    Returns
-    -------
-    Database
-
-    """
-    session = Session.with_default_backend(api_token=api_token)
-    namespace, project, exp_id = full_exp_path.split("/")
-    project_name = namespace + "/" + project
-    data_project = session.get_project(project_name)
-    exp = data_project.get_experiments(id=exp_id)[0]
-    exp.download_artifact(database_name, destination)
-    return Database(os.path.join(destination, database_name))
