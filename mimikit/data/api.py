@@ -57,7 +57,7 @@ class FeatureProxy(object):
 
     def get(self, metadata):
         """
-        get the data (numpy array) corresponding to the rows of `metadata`
+        get the data (numpy array) corresponding to the rows of ``metadata``
 
         Parameters
         ----------
@@ -101,13 +101,13 @@ class FeatureProxy(object):
 
     def subset(self, indices):
         """
-        transform self into a torch `Subset` (`Dataset`) containing only `indices` from the original data
+        transform ``self`` into a torch ``Subset`` (``Dataset``) containing only ``indices`` from the original data
 
         Parameters
         ----------
-        indices : Metadata or any object that `Subset` accepts as indices
-            if `indices` is of type `Metadata`, the returned `Subset` will only contain the files (rows) present
-            in `indices`.
+        indices : ``Metadata`` or any object that ``Subset`` accepts as indices
+            if ``indices`` is of type ``Metadata``, the returned ``Subset`` will only contain the files (rows) present
+            in ``indices``.
 
         Returns
         -------
@@ -124,29 +124,19 @@ class FeatureProxy(object):
 
 class Database(object):
     """
-    interface to .h5 databases created by mimikit
+    interface to .h5 databases created by ``mimiki.data.make_root_db``
 
     Parameters
     ----------
     h5_file : str
         path to the .h5 file containing the data
-
-    Attributes
-    ----------
-    metadata : Metadata
-        pandas DataFrame where each row contains information about one stored file.
-        see ``Metadata`` for more information
-
-    <feature_proxy> : FeatureProxy
-        each feature created by the extracting function passed to ``make_root_db``
-        is automatically added as attribute. If the extracting function returned a feature
-        by the name ``"fft"``, the attribute ``fft`` of type ``FeatureProxy`` will be automatically
-        added when the file is loaded and you will be able to access it through ``db.fft``.
     """
     def __init__(self, h5_file: str):
         self.h5_file = h5_file
         self.info = self._get_dataframe("/info")
         self.metadata = Metadata(self._get_dataframe("/metadata"))
+        """pandas DataFrame where each row contains information about one stored file.
+        See ``Metadata`` for more information"""
         with h5py.File(h5_file, "r") as f:
             # add found features as self.feature_name = FeatureProxy(self.h5_file, feature_name)
             self._register_features(self.features)
@@ -155,10 +145,8 @@ class Database(object):
     @property
     def features(self):
         """
-        Returns
-        -------
-        features : list of str
-            the name (``str``) of the features present in the db
+        returns a ``list`` of ``str`` corresponding to the names of the features attributes (``FeatureProxy``)
+        present in the db
         """
         names = self.info.iloc[:, 2:].T.index.get_level_values(0)
         return list(set(names))
@@ -166,10 +154,7 @@ class Database(object):
     @property
     def dataframes(self):
         """
-        Returns
-        -------
-        dataframes : list of str
-            the keys for the dataframes stored in this file
+        returns a ``list`` of ``str`` corresponding to the keys of all the dataframes stored in this file
         """
         keys = set()
 

@@ -1,8 +1,3 @@
-"""
-FreqNet Database
-================
-"""
-
 import argparse
 from functools import partial
 from multiprocessing import cpu_count

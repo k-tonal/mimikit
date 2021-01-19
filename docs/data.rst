@@ -1,19 +1,19 @@
-data
-====
+Data package
+============
 
-.. automodule:: mimikit.data
+.. py:currentmodule:: mimikit.data
 
-.. autosummary::
-    :toctree: generated/data
+.. autoclass:: Database
 
-    Database
+    .. autoattribute:: metadata
+    .. attribute:: <feature_proxy>
+    each feature created by the extracting function passed to ``make_root_db``
+    is automatically added as attribute. If the extracting function returned a feature
+    by the name ``"fft"``, the attribute ``fft`` of type ``FeatureProxy`` will be automatically
+    added when the file is loaded and you will be able to access it through ``db.fft``.
 
-    FeatureProxy
+    .. autoattribute:: features
 
-    upload_database
+    .. automethod:: save_dataframe
 
-    download_database
-
-    DataObject
-
-    make_root_db
+    .. automethod:: visit

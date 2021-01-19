@@ -4,6 +4,7 @@
 dist/*
 build/*
 docs/_*
+docs/html/
 docs/generated
 *egg-info*
 site/*
