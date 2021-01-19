@@ -28,6 +28,7 @@ if os.environ.get("MIMIKIT_NOTORCH", False):
     PACKAGES = [p for p in PACKAGES if "data" in p or "connectors" in p]
     REQUIRES = [r for r in REQUIRES if "torch" not in r and "test-tube" not in r]
 
+
 kwargs = {
     'name': 'mimikit',
     'version': version,
@@ -38,7 +39,7 @@ kwargs = {
     'author_email': 'ktonalberlin@gmail.com',
     'url': 'https://github.com/k-tonal/mimikit',
     'download_url': 'https://github.com/k-tonal/mimikit',
-    # 'license': 'GNU General Public License v3 (GPLv3)',
+    'license': 'GNU General Public License v3 (GPLv3)',
     'classifiers': [
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Developers',

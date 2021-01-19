@@ -5,13 +5,20 @@ import os
 from typing import Tuple
 from getpass import getpass
 import shutil
-from pytorch_lightning import LightningModule
+
+try:
+    from pytorch_lightning import LightningModule
+except ModuleNotFoundError:
+    # we only need lightning for annotation purposes
+    # and setup.py allows for a "no-torch" install that contains this module
+    # so we simulate the import if the module wasn't found
+    class pytorch_lightning:
+        LightningModule = object()
 
 from mimikit.data import Database
 
 
 class NeptuneConnector:
-
     NEPTUNE_TOKEN_KEY = "NEPTUNE_API_TOKEN"
 
     @property
@@ -27,7 +34,7 @@ class NeptuneConnector:
         """
         api_token = os.environ.get(self.NEPTUNE_TOKEN_KEY, None)
         if api_token is None:
-            api_token = getpass("Couldn't find your api token in environment. "
+            api_token = getpass("Couldn't find your api token in this system's environment. "
                                 "Please paste your API token from neptune here: ")
             os.environ[self.NEPTUNE_TOKEN_KEY] = api_token
         return api_token
@@ -49,13 +56,45 @@ class NeptuneConnector:
     def __init__(self,
                  user: str = None,
                  setup: dict = None):
+        """
+        manages the integration of ``neptune`` into ``mimikit``.
+
+        In order to connect to neptune, the ``NeptuneConnector`` probes the system's environment for an API token, and
+        if none were found, it prompts the user for it and subsequently stores it in the environment.
+        You can configure the name of the environment variable through the static attribute
+        ``NeptuneConnector.NEPTUNE_TOKEN_KEY`` which is, by default, set to "NEPTUNE_API_TOKEN".
+
+        Each instance of the ``NeptuneConnector`` type holds a dictionary in it's ``setup`` attribute where the keys
+        are user-defined and the values are expected to be paths on a neptune-user's graph.
+        Specifically, ``"<user>"`` being expected in the ``user`` argument of the ``NeptuneConnector`` constructor,
+        the values in ``setup`` can be of two forms :
+            1.  ``"<project>"``
+            2. ``"<project>/<experiment-id>"``
+        thus allowing the ``NeptuneConnector`` to
+            1. create new experiments in ``"<user>/<project>"``
+            2. retrieve data from specific experiments @ ``"<user>/<project>/<experiment-id>"``
+
+        All methods of the ``NeptuneConnector`` take a ``setup_key`` argument to specify "where" the method should be
+        executed.
+
+        Parameters
+        ----------
+        user : str
+            the neptune username
+        setup : dict
+            a dictionary where the values are paths in the neptune user's graph.
+            see description above for details.
+
+        """
         self.user = user
         self.setup = setup
         self._session = None
+        # initialize the token right-away
+        token = self.api_token
 
     def path(self, setup_key: str, split: bool = False):
         """
-        get the path for a setup_key.
+        returns the full neptune path corresponding to ``setup_key``.
 
         Parameters
         ----------
@@ -128,16 +167,18 @@ class NeptuneConnector:
         project = self.session.get_project(project_name)
         return project.create_experiment(params=params, **kwargs)
 
-    def download_experiment(self, setup_key: str, destination="./"):
+    def download_experiment(self, setup_key: str, destination: str = "./", artifacts: str = "/"):
         """
-        downloads all artifacts lying at the root of an experiment
+        downloads all artifacts lying at the root of an experiment into a folder named after the experiment-id
 
         Parameters
         ----------
         setup_key : str
             the key to look up in self.setup
         destination : str, optional
-            a directory where to unzip the experiment's artifacts
+            a directory where to create the folder `"<exp-id>/"` in which the data will be unzipped.
+        artifacts : str, optional
+            an optional path in the artifacts to download, default is "/" i.e. all artifacts. Has to be a directory.
 
         Returns
         -------
@@ -149,14 +190,18 @@ class NeptuneConnector:
         project_name = namespace + "/" + project
         model_project = self.session.get_project(project_name)
         exp = model_project.get_experiments(id=exp_id)[0]
-        exp.download_artifacts('/', destination)
-        with ZipFile(os.path.join(destination, "output.zip")) as f:
+        destination = os.path.join(destination, exp_id)
+        exp.download_artifacts(artifacts, destination)
+        artifacts_name = "output" if artifacts == "/" else os.path.split(artifacts.strip("/"))[-1]
+        with ZipFile(os.path.join(destination, artifacts_name + ".zip")) as f:
             f.extractall(destination)
-        for subdir in os.listdir(os.path.join(destination, "output")):
-            shutil.move(src=os.path.join(destination, "output", subdir),
-                        dst=os.path.join(destination, subdir))
-        os.remove(os.path.join(destination, "output.zip"))
-        shutil.rmtree(os.path.join(destination, "output"))
+        if artifacts == "/":
+            for subdir in os.listdir(os.path.join(destination, artifacts_name)):
+                shutil.move(src=os.path.join(destination, artifacts_name, subdir),
+                            dst=os.path.join(destination, subdir))
+        os.remove(os.path.join(destination, artifacts_name + ".zip"))
+        if artifacts == "/":
+            shutil.rmtree(os.path.join(destination, artifacts_name))
         return exp
 
     def get_project(self, setup_key: str):
@@ -200,7 +245,8 @@ class NeptuneConnector:
         if exp_id is None:
             feature = [name for name in db.features if "label" not in name][0]
             feat_prox = getattr(db, feature)
-            params = {"feature_name": feature,
+            params = {"name": db.h5_file,
+                      "feature_name": feature,
                       "shape": feat_prox.shape,
                       "files": len(db.metadata)}
             params.update(feat_prox.attrs)
@@ -248,13 +294,11 @@ class NeptuneConnector:
         setup_key : str
             the key in self.setup where the data should be uploaded.
         model : str or LightningModule
-            the model to be uploaded.
-            if it is a LightningModule, `upload_model` looks for its root_directory where it might find it.
-            if it is a string, than it is interpreted as the root_directory of the model to be uploaded
+            the model (``LightningModule``) to be uploaded or a root directory (``str``) for the ``artifacts``.
         artifacts : tuple of str, optional
             tuple containing the names of the sub-directories to be uploaded.
             by default `upload_model` uploads the sub-directories "states", "logs" and "audios".
-            each artifact will sit at the top-level of the experiment's artifacts
+            each uploaded artifact will sit at the top-level of the experiment
 
         Returns
         -------

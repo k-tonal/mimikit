@@ -84,7 +84,7 @@ class AudioFileWalker:
         return os.path.splitext(filename)[-1].strip(".") in AudioFileWalker.AUDIO_EXTENSIONS
 
 
-def sizeof_fmt(num, suffix='b'):
+def _sizeof_fmt(num, suffix='b'):
     for unit in ['', 'k', 'M', 'G', 'T', 'P', 'E', 'Z']:
         if abs(num) < 1024.0:
             return "%3.1f%s%s" % (num, unit, suffix)
@@ -99,11 +99,6 @@ def _empty_info(features_names):
               ]
     idx = pd.MultiIndex.from_tuples(tuples)
     return pd.DataFrame([], columns=idx)
-
-
-def split_path(path):
-    prefix, file_name = os.path.split(path)
-    return prefix, file_name
 
 
 # Core function
@@ -132,13 +127,13 @@ def file_to_db(abs_path, extract_func=default_extract_func, mode="w"):
     if "metadata" not in rv:
         raise ValueError("Expected `extract_func` to return a ('metadata', Metadata) item. Found none")
     info = _empty_info(rv.keys())
-    info.loc[0, [("directory", ""), ("name", "")]] = split_path(abs_path)
+    info.loc[0, [("directory", ""), ("name", "")]] = os.path.split(abs_path)
     f = h5py.File(tmp_db, mode)
     for name, (attrs, data) in rv.items():
         if issubclass(type(data), np.ndarray):
             ds = f.create_dataset(name=name, shape=data.shape, data=data)
             ds.attrs.update(attrs)
-            info.at[0, [(name, "dtype"), (name, "shape"), (name, "size")]] = tuple([ds.dtype, ds.shape, sizeof_fmt(data.nbytes)])
+            info.at[0, [(name, "dtype"), (name, "shape"), (name, "size")]] = tuple([ds.dtype, ds.shape, _sizeof_fmt(data.nbytes)])
         elif issubclass(type(data), pd.DataFrame):
             f.close()
             pd.DataFrame(data).to_hdf(tmp_db, name, "r+")
@@ -154,9 +149,26 @@ def file_to_db(abs_path, extract_func=default_extract_func, mode="w"):
 
 # Multiprocessing routine
 
-def make_db_for_each_file(file_walker,
-                          extract_func=default_extract_func,
-                          n_cores=cpu_count()):
+def _make_db_for_each_file(file_walker,
+                           extract_func=default_extract_func,
+                           n_cores=cpu_count()):
+    """
+    apply ``extract_func`` to the files found by ``file_walker`` through a multiprocessing ``Pool``
+
+    Parameters
+    ----------
+    file_walker : iterable of str
+        collection of files to be processed
+    extract_func : function
+        the function to apply to each file. Must take only one argument (the path to the file)
+    n_cores : int, optional
+        the number of cores used in the ``Pool``, default is the nuber of available cores on the system.
+
+    Returns
+    -------
+    temp_dbs : list of str
+        the list of .h5 files that have been created
+    """
     args = [(file, extract_func) for file in file_walker]
     with Pool(n_cores) as p:
         tmp_dbs = p.starmap(file_to_db, args)
@@ -165,14 +177,14 @@ def make_db_for_each_file(file_walker,
 
 # Aggregating sub-tasks
 
-def collect_infos(tmp_dbs):
+def _collect_infos(tmp_dbs):
     infos = []
     for db in tmp_dbs:
         infos += [Database(db).info]
     return pd.concat(infos, ignore_index=True)
 
 
-def collect_metadatas(tmp_dbs):
+def _collect_metadatas(tmp_dbs):
     metadatas = []
     offset = 0
     for db in tmp_dbs:
@@ -184,11 +196,7 @@ def collect_metadatas(tmp_dbs):
     return pd.DataFrame(pd.concat(metadatas, ignore_index=True))
 
 
-def zip_prev_next(iterable):
-    return zip(iterable[:-1], iterable[1:])
-
-
-def ds_definitions_from_infos(infos):
+def _ds_definitions_from_infos(infos):
     tb = infos.iloc[:, 2:].T
     paths = [os.path.join(*parts) for parts in infos.iloc[:, :2].values]
     # change the paths' extensions
@@ -208,7 +216,7 @@ def ds_definitions_from_infos(infos):
     return ds_definitions
 
 
-def create_datasets_from_defs(target, defs, mode="w"):
+def _create_datasets_from_defs(target, defs, mode="w"):
     f = h5py.File(target, mode)
     for name, params in defs.items():
         f.create_dataset(name, shape=params["shape"], dtype=params["dtype"],
@@ -225,7 +233,7 @@ def create_datasets_from_defs(target, defs, mode="w"):
     return
 
 
-def make_integration_args(target):
+def _make_integration_args(target):
     args = []
     with h5py.File(target, "r") as f:
         for feature in f["layouts"].keys():
@@ -235,7 +243,7 @@ def make_integration_args(target):
     return args
 
 
-def integrate(target, source, key, indices):
+def _integrate(target, source, key, indices):
     with h5py.File(source, "r") as src:
         data = src[key][()]
         attrs = {k: v for k, v in src[key].attrs.items()}
@@ -247,13 +255,13 @@ def integrate(target, source, key, indices):
 
 # Aggregating function and main client
 
-def aggregate_dbs(target, dbs, mode="w", remove_sources=False):
-    infos = collect_infos(dbs)
-    metadata = collect_metadatas(dbs)
-    definitions = ds_definitions_from_infos(infos)
-    create_datasets_from_defs(target, definitions, mode)
-    args = make_integration_args(target)
-    for arg in args: integrate(*arg)
+def _aggregate_dbs(target, dbs, mode="w", remove_sources=False):
+    infos = _collect_infos(dbs)
+    metadata = _collect_metadatas(dbs)
+    definitions = _ds_definitions_from_infos(infos)
+    _create_datasets_from_defs(target, definitions, mode)
+    args = _make_integration_args(target)
+    for arg in args: _integrate(*arg)
     if remove_sources:
         for src in dbs:
             if src != target:
@@ -280,7 +288,7 @@ def make_root_db(db_name, roots='./', files=None, extract_func=default_extract_f
         default is `None`
     extract_func : function, optional
         the function to use for the extraction - should take exactly one argument.
-        the default transforms the file to a stft with n_fft=2048 and hop_length=512.
+        the default transforms the file to the stft with n_fft=2048 and hop_length=512.
     n_cores : int, optional
         the number of cores to use to parallelize the extraction process.
         default is the number of available cores on the system.
@@ -291,6 +299,6 @@ def make_root_db(db_name, roots='./', files=None, extract_func=default_extract_f
         the created db
     """
     walker = AudioFileWalker(roots, files)
-    dbs = make_db_for_each_file(walker, extract_func, n_cores)
-    aggregate_dbs(db_name, dbs, "w", True)
+    dbs = _make_db_for_each_file(walker, extract_func, n_cores)
+    _aggregate_dbs(db_name, dbs, "w", True)
     return Database(db_name)

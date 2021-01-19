@@ -61,7 +61,7 @@ def freqnet_db(target,
         list of audio files to include in the db
 
         .. note::
-            if no ``roots`` and no ``files`` are provided, the fucntion will search
+            if no ``roots`` and no ``files`` are provided, the function will search
             for audio files in the current working directory.
 
     n_fft : int, optional

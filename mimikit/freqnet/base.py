@@ -18,7 +18,13 @@ class ManyOneCycleLR(torch.optim.lr_scheduler.OneCycleLR):
 
 
 class FreqOptim:
+    """
+    simple class to modularize the optimization setup used in a ``FreqNetModel``.
 
+    Here the method ``configure_optimizers()`` returns an ``Adam`` optimizer and a slightly modified
+    ``OneCycleLR`` scheduler (the only modification being that it won't raise a ``ValueError`` if you use for more
+    steps than what it expects and will instead restarts its cycle)
+    """
     def __init__(self,
                  model,
                  max_lr=1e-3,
@@ -52,6 +58,13 @@ class FreqOptim:
 
 
 class FreqData(LightningDataModule):
+    """
+    boilerplate subclass of ``pytorch_lightning.LightningDataModule`` to handle the data of a ``FreqNetModel``.
+
+    the data is passed through ``data_object``, wrapped in a ``ShiftedSeqsPair`` in ``prepare_data()`` and
+    in ``setup("fit")`` it is moved to the gpu if ``to_gpu`` is ``True`` and split into train, val and test sets
+    according to ``splits``
+    """
     def __init__(self,
                  model,
                  data_object=None,
@@ -128,7 +141,9 @@ class FreqNetModel(MMKHooks,
                    LoggingHooks,
                    LightningModule,
                    ABC):
-
+    """
+    base class for all ``FreqNets`` that handles optim, data and a few handy methods like ``generate()``
+    """
     @property
     def data(self):
         """short-hand to quickly access the data object passed to the constructor"""

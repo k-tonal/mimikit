@@ -12,14 +12,17 @@ from ..data.data_object import DataObject
 
 class FeatureProxy(object):
     """
-    Interface to the numerical data (array) stored in a .h5 file created with mimikit.
+    Interface to the numerical data (array) stored in a .h5 file created with ``mimikit.data.make_root_db``
+
+    ``FeatureProxy`` objects are like ``numpy`` arrays (on disk) and can be used as map-style ``Dataset``
+    because they implement ``__len__`` and ``__getitem__``.
 
     Parameters
     ----------
     h5_file : str
         name of the file
     ds_name : str
-        name of the ``h5py.Dataset`` containing the data
+        name of the ``h5py.Dataset`` containing the data to be served
 
     Attributes
     ----------
@@ -79,7 +82,21 @@ class FeatureProxy(object):
         return np.concatenate(tuple(self[slice_i] for slice_i in slices), axis=t_axis)
 
     def add(self, array, filename=None):
-        new = add_data(self.h5_file, self.name, array, filename)
+        """
+        EXPERIMENTAL! append `array` to the feature and fill the `"name"` column of `db.metadata` with 'filename'
+        Parameters
+        ----------
+        array : np.ndarray
+            the array to append at the end of the feature
+        filename : str, optional
+            a name for the array being added
+
+        Returns
+        -------
+        new : FeatureProxy
+            the updated object
+        """
+        new = _add_data(self.h5_file, self.name, array, filename)
         return new
 
     def subset(self, indices):
@@ -137,11 +154,23 @@ class Database(object):
 
     @property
     def features(self):
+        """
+        Returns
+        -------
+        features : list of str
+            the name (``str``) of the features present in the db
+        """
         names = self.info.iloc[:, 2:].T.index.get_level_values(0)
         return list(set(names))
 
     @property
     def dataframes(self):
+        """
+        Returns
+        -------
+        dataframes : list of str
+            the keys for the dataframes stored in this file
+        """
         keys = set()
 
         def func(k, v):
@@ -153,6 +182,18 @@ class Database(object):
         return list(keys)
 
     def visit(self, func=print):
+        """
+        wrapper for ``h5py.File.visititems()``
+
+        Parameters
+        ----------
+        func : function
+            a function to be applied recursively
+
+        Returns
+        -------
+        None
+        """
         with h5py.File(self.h5_file, "r") as f:
             f.visititems(func)
 
@@ -163,6 +204,21 @@ class Database(object):
             return pd.DataFrame()
 
     def save_dataframe(self, key, df):
+        """
+        stores a ``pd.DataFrame`` object under ``key``
+
+        Parameters
+        ----------
+        key : str
+            the key under which ``df`` will be stored
+        df : pd.DataFrame
+            the ``DataFrame`` to be stored
+
+        Returns
+        -------
+        df : pd.DataFrame
+            the ``DataFrame`` as it has been stored
+        """
         with h5py.File(self.h5_file, "r+") as f:
             if key in f:
                 f.pop(key)
@@ -194,7 +250,10 @@ def add_feature(h5_file, feature_name, array):
     pass
 
 
-def add_metadata(h5_file, start, stop, duration, ds_name, filename=None):
+def _add_metadata(h5_file, start, stop, duration, ds_name, filename=None):
+    """
+    adds a row of metadata to ``db.metadata``, ``db.info`` and in the ``layout`` of ``ds_name``
+    """
     meta = pd.read_hdf(h5_file, "metadata")
     layout = pd.read_hdf(h5_file, "layouts/" + ds_name)
     info = pd.read_hdf(h5_file, "info")
@@ -215,7 +274,26 @@ def add_metadata(h5_file, start, stop, duration, ds_name, filename=None):
     return new_info
 
 
-def add_data(h5_file, ds_name, array, filename):
+def _add_data(h5_file, ds_name, array, filename):
+    """
+    EXPERIMENTAL!! adds data at the end of a ``Dataset`` in a .h5 file.
+
+    Parameters
+    ----------
+    h5_file : str
+        path to the file
+    ds_name : str
+        name of the ``h5py.Dataset`` to which ``array`` will be added
+    array : np.ndarray
+        the array to add
+    filename : str
+        a name for the array in ``db.metadata``
+
+    Returns
+    -------
+    arr : np.ndarray
+        the array as it has been stored
+    """
     N = array.shape[0]
     with h5py.File(h5_file, "r+") as f:
         if f[ds_name].shape[1:] != array.shape[1:]:
@@ -226,5 +304,5 @@ def add_data(h5_file, ds_name, array, filename):
         f[ds_name].resize(M + N, axis=0)
         f[ds_name][-N:] = array
         rv = f[ds_name][-N:]
-    add_metadata(h5_file, M, N + M, N, ds_name, filename)
+    _add_metadata(h5_file, M, N + M, N, ds_name, filename)
     return rv

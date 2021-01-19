@@ -39,11 +39,13 @@ def get_trainer(root_dir=None,
     model : pytorch_lightning.LightningModule, optional
         the model you will train. Only required when `neptune_connector` is not None
     neptune_connector : NeptuneConnector, optional
-        if this argument is set, a `NeptuneLogger` will be created and you will be able to store your model and its logs
-        on neptune.ai
+        if this argument is set, ``neptune_connector`` is expected to have a "model" key in its ``setup``
+        in order to bind the model with a neptune experiment.
+        If the value associated to the "model" key contains no experiment-id, a new experiment will be created.
+        If the value does contain an experiment-id, this exact experiment will be accessed and updated.
     kwargs
         additional keywords arguments are passed directly to the `Trainer`.
-        see https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#trainer-class-api
+        see https://pytorch-lightning.readthedocs.io/en/latest/trainer.html#trainer-class-api for full references.
 
     Returns
     -------
