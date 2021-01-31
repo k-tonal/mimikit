@@ -1,5 +1,5 @@
 Training
-========
+===========
 
 .. py:currentmodule:: mimikit.kit
 

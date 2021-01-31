@@ -7,6 +7,73 @@ from .base import FreqNetModel
 
 
 class FreqNet(FreqNetModel):
+    """
+    auto-regressive model for learning and generating audio in the frequency domain.
+
+
+    Parameters
+    ----------
+    loss_fn : function, optional
+        the loss function to use for training.
+        Must accept 2 arguments ``outputs`` and ``targets`` as returned by ``forward()`` and the batch respectively.
+        Default is ``mimikit.freqnet.modules.mean_L1_prop``
+    model_dim : int, optional
+        the number of channels to use in the layers' parameters.
+        Default is 512
+    groups : int, optional
+        the number of groups to use in the layers' convolutions.
+        Default is 1.
+        See `the torch documentation <>`__ for more information.
+    n_layers : tuple of ints,
+        each int ``n`` in ``n_layers`` represents a block of ``n`` layers.
+        See the `Freqnet Guide` for more information.
+    kernel_size : int, optional
+        the size of the kernel in the convolutions.
+        Default is 2
+    strict : bool, optional
+        whether to enforce layer-wise time-shifting.
+        Default is ``False``.
+        See the `Freqnet Guide` for more information.
+    accum_outputs : int or str, optional
+        commonly known as applying residuals : whether to sum the outputs of each layer with their respective inputs.
+        See the note "On sides" for accepted values.
+        Default is 0.
+    concat_outputs : int or str, optional
+        when turned on, this technique pads outputs of each layer with time-steps of the inputs from the left or right side.
+        See the note "On sides" for accepted values.
+        Default is 0.
+    pad_input : int or str, optional
+        whether and where to pad the inputs to each layer.
+        See the note "On sides" for accepted values.
+        Default is 0.
+    learn_padding : bool, optional
+        whether to use learnable padding parameters when ``pad_input`` is neither ``0`` nor ``None``
+        Default is ``False``
+    with_skip_conv : bool, optional
+        whether to add skips convolutions and corresponding mechanism to the network.
+        Default is ``False``
+    with_residual_conv : bool, optional
+        whether to add an additional 1x1 convolution after the gate of each layer.
+        Default is False.
+    data_optim_kwargs
+        optional parameters for data and optimization submodules.
+        See ``FreqData`` and ``FreqOptim`` for more information.
+
+    Notes
+    -----
+    .. note::
+        # On sides
+        Because convolution layers as they are used in ``FreqNet`` outputs less time-steps than they receive as input,
+        applying techniques such as residuals or padding is only possible when one specifies how inputs and outputs are
+        supposed to be aligned.
+        ``FreqNet`` has 3 arguments that turn such techniques on and off : ``pad_input``, ``accum_outputs`` and ``concat_outputs``.
+        They all accept the same values :
+            - ``0`` or ``None`` mean the technique is not applied.
+            - ``1`` or ``"left"`` aligns outputs and inputs on the left and apply the technique.
+            - ``-1`` or ``"right"`` aligns outputs and inputs on the right and apply the technique.
+
+    """
+
     LAYER_KWARGS = ["groups", "strict", "accum_outputs", "concat_outputs", "kernel_size",
                     "pad_input", "learn_padding", "with_skip_conv", "with_residual_conv"]
 
