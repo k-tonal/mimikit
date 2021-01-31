@@ -1,4 +1,6 @@
-Kit
-===
+Training
+========
 
-.. automodule:: mimikit.kit
+.. py:currentmodule:: mimikit.kit
+
+.. autofunction:: get_trainer
