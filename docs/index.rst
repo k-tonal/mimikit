@@ -12,7 +12,14 @@ mimikit
 
 .. toctree::
    :maxdepth: 1
-   :caption: User Guide
+   :caption: User Guides
+
+   tutorials/Installation & Setup
+   tutorials/Introduction to Deep Learning
+   tutorials/Gdrive Tutorial
+   tutorials/FreqNet Guide
+   tutorials/Snippets Examples
+
 
 .. toctree::
    :maxdepth: 1
@@ -20,7 +27,7 @@ mimikit
 
    data
    freqnet
-   kit
+   training
 
 * :ref:`genindex`
 * :ref:`modindex`
