@@ -35,7 +35,8 @@ import sphinx_rtd_theme
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx_rtd_theme',
-    "numpydoc",
+    # "numpydoc",
+    "sphinx.ext.napoleon",
     "sphinx.ext.autosummary"
 ]
 
@@ -62,8 +63,12 @@ html_static_path = ['_static']
 
 autoclass_content = "class"
 
-autodoc_default_flags = ['no-members', 'no-undoc-members']
+autodoc_default_flags = ['no-undoc-members']
 
 autosummary_generate = False
 
-numpydoc_show_class_members = False
+numpydoc_show_class_members = True
+
+napoleon_use_ivar = False
+
+napoleon_use_admonition_for_examples = False

@@ -19,18 +19,18 @@ class FeatureProxy(object):
 
     Parameters
     ----------
-    h5_file : str
+    h5_file : ``str``
         name of the file
-    ds_name : str
+    ds_name : ``str``
         name of the ``h5py.Dataset`` containing the data to be served
 
     Attributes
     ----------
-    N : int
+    N : ``int``
         the length of the first dimension of the underlying array
-    shape : tuple of int
+    shape : ``tuple`` of ``int``
         the shape of the underlying array
-    attrs : dict
+    attrs : ``dict``
         dictionary of additional information about the data as returned
         by the ``extract_func`` passed to ``make_root_db``.
         Typically, this is where you want to store the parameters of your extracting function, e.g.
@@ -57,24 +57,26 @@ class FeatureProxy(object):
 
     def get(self, regions):
         """
-        get the data (numpy array) corresponding to the rows of `regions`
+        get the data (numpy array) corresponding to the rows of ``regions``
 
         Parameters
         ----------
-        regions : Regions
+        regions : ``Regions``
             the files you want to get as array
 
         Returns
         -------
-        data : np.ndarray
+        data : ``np.ndarray``
             the concatenated data for all the requested files
 
-        Examples
+        Example
         --------
-        >>>from mimikit import Database
-        >>>db = Database("my-db.h5")
-        # only get files 0, 3 & 7
-        >>>db.fft.get(db.regions.iloc[[0, 3, 7]])
+        .. code-block::
+
+            from mimikit import Database
+            db = Database("my-db.h5")
+            # only get files 0, 3 & 7
+            db.fft.get(db.regions.iloc[[0, 3, 7]])
 
         """
         t_axis = self.attrs.get("time_axis", 0)
@@ -83,17 +85,17 @@ class FeatureProxy(object):
 
     def add(self, array, filename=None):
         """
-        EXPERIMENTAL! append `array` to the feature and fill the `"name"` column of `db.regions` with 'filename'
+        EXPERIMENTAL! append ``array`` to the feature and fill the ``"name"`` column of ``db.regions`` with 'filename'
         Parameters
         ----------
-        array : np.ndarray
+        array : ``np.ndarray``
             the array to append at the end of the feature
-        filename : str, optional
+        filename : ``str``, optional
             a name for the array being added
 
         Returns
         -------
-        new : FeatureProxy
+        new : ``FeatureProxy``
             the updated object
         """
         new = _add_data(self.h5_file, self.name, array, filename)
@@ -111,7 +113,7 @@ class FeatureProxy(object):
 
         Returns
         -------
-        subset : torch.utils.data.Subset
+        subset : ``torch.utils.data.Subset``
             the obtained subset
         """
         if isinstance(indices, Regions):
@@ -125,18 +127,21 @@ class FeatureProxy(object):
 
         Parameters
         ----------
-        indices : list of ints
-            correspond to the rows of db.regions you want to keep
+        indices : ``list`` of ``ints``
+            correspond to the rows of ``db.regions`` you want to keep
 
         Returns
         -------
-        subset : torch.utils.data.Subset
+        subset : ``torch.utils.data.Subset``
             the obtained subset
 
-        Examples
+        Example
         --------
-        >>>>db = Database("test.h5")
-        >>>>sub = db.fft.regions([1, 2, 3, 9])
+        .. code-block::
+
+            from mimikit import Database
+            db = Database("test.h5")
+            sub = db.fft.regions([1, 2, 3, 9])
         """
         regions = Database(self.h5_file).regions.iloc[indices]
         return self.subset(regions)
@@ -151,20 +156,21 @@ class Database(object):
 
     Parameters
     ----------
-    h5_file : str
+    h5_file : ``str``
         path to the .h5 file containing the data
 
     Attributes
     ----------
-    regions : Regions
+    regions : ``Regions``
         pandas DataFrame where each row contains information about one stored file.
         see ``Regions`` for more information
 
-    <feature_proxy> : FeatureProxy
+    <feature_proxy> : ``FeatureProxy``
         each feature created by the extracting function passed to ``make_root_db``
-        is automatically added as attribute. If the extracting function returned a feature
-        by the name ``"fft"``, the attribute ``fft`` of type ``FeatureProxy`` will be automatically
-        added when the file is loaded and you will be able to access it through ``db.fft``.
+        is automatically added as attribute to ``Database`` instances loading the .h5 file.
+        For instance, if the extracting function returned a feature by the name ``"fft"``,
+        the attribute ``fft`` of type ``FeatureProxy`` will be automatically
+        added as attribute when the file is loaded and you will be able to access it through ``db.fft``.
     """
     def __init__(self, h5_file: str):
         self.h5_file = h5_file
@@ -182,7 +188,7 @@ class Database(object):
         Parameters
         ----------
         func : function
-            a function to be applied recursively
+            a function to be applied recursively. The default prints names and values of the h5 items.
 
         Returns
         -------
@@ -203,14 +209,14 @@ class Database(object):
 
         Parameters
         ----------
-        key : str
+        key : ``str``
             the key under which ``df`` will be stored
         df : pd.DataFrame
             the ``DataFrame`` to be stored
 
         Returns
         -------
-        df : pd.DataFrame
+        df : ``pd.DataFrame``
             the ``DataFrame`` as it has been stored
         """
         with h5py.File(self.h5_file, "r+") as f:
@@ -257,13 +263,13 @@ def _add_data(h5_file, ds_name, array, filename):
 
     Parameters
     ----------
-    h5_file : str
+    h5_file : ``str``
         path to the file
-    ds_name : str
+    ds_name : ``str``
         name of the ``h5py.Dataset`` to which ``array`` will be added
     array : np.ndarray
         the array to add
-    filename : str
+    filename : ``str``
         a name for the array in ``db.regions``
 
     Returns
@@ -275,7 +281,7 @@ def _add_data(h5_file, ds_name, array, filename):
     with h5py.File(h5_file, "r+") as f:
         if f[ds_name].shape[1:] != array.shape[1:]:
             raise ValueError(
-                ("expected all but the first dimension of `array` to match %s. " % str(f[ds_name].shape[1:])) +
+                ("expected all but the first dimension of ``array`` to match %s. " % str(f[ds_name].shape[1:])) +
                 ("Got %s" % str(array.shape[1:])))
         M = f[ds_name].shape[0]
         f[ds_name].resize(M + N, axis=0)
