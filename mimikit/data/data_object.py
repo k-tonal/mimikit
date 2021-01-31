@@ -6,6 +6,19 @@ from functools import update_wrapper
 
 
 def map_if_multi(attr):
+    """
+    decorator for applying a method recursively to ``getattr(self, attr)`` if ``getattr(self, attr)`` is a tuple.
+
+    Parameters
+    ----------
+    attr : str
+        name of the ``attribute`` to which the method will apply and that can possibly be a ``tuple``.
+
+    Returns
+    -------
+    decorator : function
+        the wrapping function for decorating the method
+    """
     def decorator(fn):
         def wrapper(self, *arg, **kwargs):
             if isinstance(getattr(self, attr), tuple):
@@ -23,6 +36,30 @@ def map_if_multi(attr):
 
 
 class DataObject(TorchDataset):
+    """
+    the goal of the ``DataObject`` class is to provide a single universal object for making smart ``Datasets``.
+
+    In its constructor, ``DataObject`` accepts ``numpy`` arrays, ``python iterables``, ``torch.Tensors`` and ``Datasets``,
+    ``FeatureProxies`` from ``mimikit``'s ``Databases`` and generally, any object that implements ``__len__`` and ``__getitem__``
+    or ``__iter__`` - i.e. objects that behaves like 'map-style' and 'iter-style' ``Datasets``.
+
+    Furthermore, ``DataObject`` handles nested ``tuples`` of such "data objects" as if they were single containers with
+    multiple fields, thus allowing you to easily define the shape and content of your batches at the very top-level.
+    For example, if you have raw images and labels, you just need
+    ```
+    dataloader = Dataloader(DataObject((images, labels)), ....)
+    ```
+    in order to later do
+    ```
+    images, labels = batch
+    ```
+    in your ``training_step()``.
+
+    ``DataObject`` instances also implement some of the most common ``numpy`` and ``torch`` properties like ``shape``
+    or ``dtype`` and some handy methods like ``to_tensor()``, ``to(device)`` or ``split([...])`` thus removing a lot of
+    boilerplate imports and code-lines that deal with low-level data management while maintaining access to the parts
+    of the low-level interfaces that are always needed when defining models and trainings.
+    """
 
     @property
     def data(self):

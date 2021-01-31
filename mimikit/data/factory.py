@@ -7,12 +7,10 @@ import os
 import warnings
 
 from .api import Database
-from .metadata import Metadata
+from .regions import Regions
 from .transforms import default_extract_func
 
 warnings.filterwarnings("ignore", message="PySoundFile failed.")
-warnings.filterwarnings("ignore", message="PerformanceWarning")
-warnings.filterwarnings("ignore", message="Creating an ndarray from ragged nested sequences")
 
 
 class AudioFileWalker:
@@ -78,8 +76,8 @@ class AudioFileWalker:
 
     @staticmethod
     def is_audio_file(filename):
-        # filter out hidden files (isn't cross-platform, but, it's a start!...)
-        if filename.startswith("."):
+        # filter out hidden files
+        if os.path.split(filename.strip("/"))[-1].startswith("."):
             return False
         return os.path.splitext(filename)[-1].strip(".") in AudioFileWalker.AUDIO_EXTENSIONS
 
@@ -92,20 +90,11 @@ def _sizeof_fmt(num, suffix='b'):
     return "%.1f%s%s" % (num, 'Yi', suffix)
 
 
-def _empty_info(features_names):
-    tuples = [("directory", ""), ("name", ""),
-              *[t for feat in features_names for t in [(feat, "dtype"), (feat, "shape"), (feat, "size")]
-                if feat != "metadata"]
-              ]
-    idx = pd.MultiIndex.from_tuples(tuples)
-    return pd.DataFrame([], columns=idx)
-
-
 # Core function
 
-def file_to_db(abs_path, extract_func=default_extract_func, mode="w"):
+def file_to_db(abs_path, extract_func=default_extract_func, output_path=None, mode="w"):
     """
-    apply `extract_func` to `abs_path` and write the result in a .h5 file
+    apply ``extract_func`` to ``abs_path`` and write the result in a .h5 file.
 
     Parameters
     ----------
@@ -113,38 +102,40 @@ def file_to_db(abs_path, extract_func=default_extract_func, mode="w"):
         path to the file to be extracted
     extract_func : function
         the function to use for the extraction - should take exactly one argument
+    output_path : str or None
+        name of the created .h5 file if not None, else the name of the created .h5 file
+        will be of the form : "<abs_path_without_extension>.h5"
     mode : str
         the mode to use when opening the .h5 file. default is "w".
 
     Returns
     -------
-    created : str
-        the name of the created .h5 file
+    created_file, infos : str, dict
+        the name of the created .h5 file and a ``dict`` with the keys ``"dtype"`` and ``"shape"``
     """
-    print("making db for %s" % abs_path)
-    tmp_db = os.path.splitext(abs_path)[0] + ".h5"
+    print("making .h5 for %s" % abs_path)
+    if output_path is None:
+        output_path = os.path.splitext(abs_path)[0] + ".h5"
+    else:
+        if output_path[-3:] != ".h5":
+            output_path += ".h5"
     rv = extract_func(abs_path)
-    if "metadata" not in rv:
-        raise ValueError("Expected `extract_func` to return a ('metadata', Metadata) item. Found none")
-    info = _empty_info(rv.keys())
-    info.loc[0, [("directory", ""), ("name", "")]] = os.path.split(abs_path)
-    f = h5py.File(tmp_db, mode)
+    if "regions" not in rv:
+        raise ValueError("Expected `extract_func` to return a ('regions', Regions) item. Found none")
+    info = {}
+    f = h5py.File(output_path, mode)
     for name, (attrs, data) in rv.items():
         if issubclass(type(data), np.ndarray):
             ds = f.create_dataset(name=name, shape=data.shape, data=data)
             ds.attrs.update(attrs)
-            info.at[0, [(name, "dtype"), (name, "shape"), (name, "size")]] = tuple([ds.dtype, ds.shape, _sizeof_fmt(data.nbytes)])
+            info[name] = {"dtype": ds.dtype, "shape": ds.shape}
         elif issubclass(type(data), pd.DataFrame):
             f.close()
-            pd.DataFrame(data).to_hdf(tmp_db, name, "r+")
-            f = h5py.File(tmp_db, "r+")
+            pd.DataFrame(data).to_hdf(output_path, name, "r+")
+            f = h5py.File(output_path, "r+")
     f.flush()
     f.close()
-    if "info" in f.keys():
-        prior = pd.read_hdf(tmp_db, "info", "r")
-        info = pd.concat((prior, info.iloc[:, 2:]), axis=1)
-    info.to_hdf(tmp_db, "info", "r+")
-    return tmp_db
+    return output_path, info
 
 
 # Multiprocessing routine
@@ -153,7 +144,9 @@ def _make_db_for_each_file(file_walker,
                            extract_func=default_extract_func,
                            n_cores=cpu_count()):
     """
-    apply ``extract_func`` to the files found by ``file_walker`` through a multiprocessing ``Pool``
+    apply ``extract_func`` to the files found by ``file_walker``
+
+    If file_walker found more than ``n_cores`` files, a multiprocessing ``Pool`` is used to speed up the process.
 
     Parameters
     ----------
@@ -162,119 +155,117 @@ def _make_db_for_each_file(file_walker,
     extract_func : function
         the function to apply to each file. Must take only one argument (the path to the file)
     n_cores : int, optional
-        the number of cores used in the ``Pool``, default is the nuber of available cores on the system.
+        the number of cores used in the ``Pool``, default is the number of available cores on the system.
 
     Returns
     -------
-    temp_dbs : list of str
-        the list of .h5 files that have been created
+    temp_dbs : list of tuples
+        each tuple in the list is of the form ``("<created_file>.h5", dict(feature_name=dict(dtype=..., shape=...), ...))``
     """
-    args = [(file, extract_func) for file in file_walker]
-    with Pool(n_cores) as p:
-        tmp_dbs = p.starmap(file_to_db, args)
-    return tmp_dbs
+    # add ".tmp_" prefix to the output_paths
+    args = [(file, extract_func, os.path.join(os.path.split(file)[0], ".tmp_" + os.path.split(file)[1]))
+            for file in file_walker]
+    if len(args) > n_cores:
+        with Pool(n_cores) as p:
+            tmp_dbs_infos = p.starmap(file_to_db, args)
+    else:
+        tmp_dbs_infos = [file_to_db(*arg) for arg in args]
+    return tmp_dbs_infos
 
 
-# Aggregating sub-tasks
+def _aggregate_db_infos(infos):
+    """
+    helper to reduce shapes and dtypes of several files and to concatenate their regions
 
-def _collect_infos(tmp_dbs):
-    infos = []
-    for db in tmp_dbs:
-        infos += [Database(db).info]
-    return pd.concat(infos, ignore_index=True)
+    Parameters
+    ----------
+    infos : list of tuples
+        see the returned value of ``_make_db_for_each_file`` for the expected type
 
-
-def _collect_metadatas(tmp_dbs):
-    metadatas = []
-    offset = 0
-    for db in tmp_dbs:
-        meta = Database(db).metadata
-        meta.loc[:, ("start", "stop")] = meta.loc[:, ("start", "stop")].values + offset
-        meta.loc[:, "name"] = os.path.splitext(db)[0]
-        metadatas += [meta]
-        offset = meta.last_stop
-    return pd.DataFrame(pd.concat(metadatas, ignore_index=True))
-
-
-def _ds_definitions_from_infos(infos):
-    tb = infos.iloc[:, 2:].T
-    paths = [os.path.join(*parts) for parts in infos.iloc[:, :2].values]
-    # change the paths' extensions
-    paths = [os.path.splitext(path)[0] + ".h5" for path in paths]
-    features = set(tb.index.get_level_values(0))
+    Returns
+    -------
+    ds_definitions : dict
+        the keys are the name of the H5Datasets (features)
+        the values are dictionaries with keys ("shape", "dtype", "regions") and corresponding values
+    """
+    paths = [x[0] for x in infos]
+    features = set([feature for db in infos for feature in db[1].keys()])
     ds_definitions = {}
     for f in features:
-        dtype = tb.loc[(f, "dtype"), :].unique().item()
-        shapes = tb.loc[(f, "shape"), :].values
+        dtype = set([db[1][f]["dtype"] for db in infos])
+        assert len(dtype) == 1, "aggregated features must be of a unique dtype"
+        dtype = dtype.pop()
+        shapes = [db[1][f]["shape"] for db in infos]
         dims = shapes[0][1:]
         assert all(shp[1:] == dims for shp in
                    shapes[1:]), "all features should have the same dimensions but for the first axis"
-        layout = Metadata.from_duration([s[0] for s in shapes])
-        ds_shape = (layout.last_stop, *dims)
-        layout.index = paths
-        ds_definitions[f] = {"shape": ds_shape, "dtype": dtype, "layout": layout}
+        # collect the regions for the files
+        regions = Regions.from_duration([s[0] for s in shapes])
+        ds_shape = (regions.last_stop, *dims)
+        regions.index = paths
+        ds_definitions[f] = {"shape": ds_shape, "dtype": dtype, "meta_regions": regions}
     return ds_definitions
 
 
-def _create_datasets_from_defs(target, defs, mode="w"):
-    f = h5py.File(target, mode)
-    for name, params in defs.items():
-        f.create_dataset(name, shape=params["shape"], dtype=params["dtype"],
-                         chunks=True, maxshape=(None, *params["shape"][1:]))
-        layout = params["layout"]
-        layout.reset_index(drop=False, inplace=True)
-        layout = layout.rename(columns={"index": "name"})
-        f.flush()
-        f.close()
-        pd.DataFrame(layout).to_hdf(target, "layouts/" + name, "r+", format="table")
-        f = h5py.File(target, "r+")
-    f.flush()
-    f.close()
-    return
+# Aggregating function
 
+def _aggregate_dbs(target, tmp_dbs_infos, mode="w"):
+    """
+    copy a list of .h5 files as defined in ``tmp_dbs_infos`` into ``target``
 
-def _make_integration_args(target):
+    Parameters
+    ----------
+    target : str
+        name for the target file
+    tmp_dbs_infos : list
+        see the returned value of ``_make_db_for_each_file`` for the expected type
+    mode : str
+        the mode with which ``target`` is opened the first time. Must be 'w' if ``target`` doesn't exist.
+    """
+    features_infos = _aggregate_db_infos(tmp_dbs_infos)
+
+    # open the file & create the master datasets to host the features
+    with h5py.File(target, mode) as f:
+        # add the list of features
+        f.attrs["features"] = list(features_infos.keys())
+        for name, params in features_infos.items():
+            f.create_dataset(name, shape=params["shape"], dtype=params["dtype"],
+                             chunks=True, maxshape=(None, *params["shape"][1:]))
+
+    # prepare args for copying the tmp_files into the appropriate regions
     args = []
-    with h5py.File(target, "r") as f:
-        for feature in f["layouts"].keys():
-            df = Metadata(pd.read_hdf(target, "layouts/" + feature))
-            args += [(target, source, feature, indices) for source, indices in
-                     zip(df.name, df.slices(time_axis=0))]
-    return args
+    for feature, info in features_infos.items():
+        # collect the arguments for copying each file into its regions in the master datasets/features
+        args += [(source, feature, indices) for source, indices in
+                 zip(info["meta_regions"].index, info["meta_regions"].slices(time_axis=0))]
 
+    # copy the data
+    intra_regions = None
+    for source, key, indices in args:
+        with h5py.File(source, "r") as src:
+            data = src[key][()]
+            attrs = {k: v for k, v in src[key].attrs.items()}
+        # concat the regions :
+        regions = pd.read_hdf(source, key="regions", mode="r")
+        regions.loc[:, ("start", "stop")] += indices[0].start
+        # remove ".tmp_" from the source's name
+        regions.loc[:, "name"] = "".join(source.split(".tmp_"))
+        intra_regions = pd.concat(([intra_regions] if intra_regions is not None else []) + [regions])
+        with h5py.File(target, "r+") as trgt:
+            trgt[key][indices] = data
+            trgt[key].attrs.update(attrs)
+    pd.DataFrame(intra_regions).to_hdf(target, "regions", mode="r+")
 
-def _integrate(target, source, key, indices):
-    with h5py.File(source, "r") as src:
-        data = src[key][()]
-        attrs = {k: v for k, v in src[key].attrs.items()}
-    with h5py.File(target, "r+") as trgt:
-        trgt[key][indices] = data
-        trgt[key].attrs.update(attrs)
-    return
-
-
-# Aggregating function and main client
-
-def _aggregate_dbs(target, dbs, mode="w", remove_sources=False):
-    infos = _collect_infos(dbs)
-    metadata = _collect_metadatas(dbs)
-    definitions = _ds_definitions_from_infos(infos)
-    _create_datasets_from_defs(target, definitions, mode)
-    args = _make_integration_args(target)
-    for arg in args: _integrate(*arg)
-    if remove_sources:
-        for src in dbs:
-            if src != target:
-                os.remove(src)
-    infos = infos.astype(object)
-    infos.to_hdf(target, "info", "r+")
-    metadata.to_hdf(target, "metadata", "r+")
+    # remove the temp_dbs
+    for src, _ in tmp_dbs_infos:
+        if src != target:
+            os.remove(src)
 
 
 def make_root_db(db_name, roots='./', files=None, extract_func=default_extract_func,
                  n_cores=cpu_count()):
     """
-    extract and aggregate several files into a .h5 Database
+    extract and aggregate several files into a single .h5 Database
 
     Parameters
     ----------
@@ -299,6 +290,6 @@ def make_root_db(db_name, roots='./', files=None, extract_func=default_extract_f
         the created db
     """
     walker = AudioFileWalker(roots, files)
-    dbs = _make_db_for_each_file(walker, extract_func, n_cores)
-    _aggregate_dbs(db_name, dbs, "w", True)
+    tmp_dbs_infos = _make_db_for_each_file(walker, extract_func, n_cores)
+    _aggregate_dbs(db_name, tmp_dbs_infos, "w")
     return Database(db_name)

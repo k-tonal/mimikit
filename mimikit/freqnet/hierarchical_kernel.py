@@ -19,6 +19,7 @@ class HKFreqNet(FreqNet):
                  groups=1,
                  n_layers=2,
                  strict=False,
+                 kernel_size=2,
                  accum_outputs=0,
                  concat_outputs=0,
                  pad_input=0,
@@ -26,7 +27,7 @@ class HKFreqNet(FreqNet):
                  with_skip_conv=True,
                  with_residual_conv=True,
                  **data_optim_kwargs):
-        super(HKFreqNet, self).__init__(loss_fn, model_dim, groups, (n_layers,), strict,
+        super(HKFreqNet, self).__init__(loss_fn, model_dim, groups, (n_layers,), kernel_size, strict,
                                         accum_outputs, concat_outputs, pad_input, learn_padding,
                                         with_skip_conv, with_residual_conv,
                                         **data_optim_kwargs)

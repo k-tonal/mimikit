@@ -38,9 +38,9 @@ def test_audio_file_walker(audio_tree):
 
 def test_default_extract_func(audio_tree):
     dic = default_extract_func(audio_tree + "/dir2/test1.wav")
-    # we must have metadata
-    assert "metadata" in dic and isinstance(dic["metadata"][1], pd.DataFrame), dic["metadata"]
-    # metadata + feature
+    # we must have regions
+    assert "regions" in dic and isinstance(dic["regions"][1], pd.DataFrame), dic["regions"]
+    # regions + feature
     assert len(dic) == 2
 
 
@@ -50,27 +50,25 @@ def test_file_to_db(audio_tree):
 
     def faulty_extract_func(path):
         dic = default_extract_func(path)
-        dic.pop("metadata")
+        dic.pop("regions")
         return dic
 
-    with pytest.raises(ValueError, match=r".*metadata.*"):
+    with pytest.raises(ValueError, match=r".*regions.*"):
         file_to_db(file_path, faulty_extract_func)
 
     file_to_db(file_path)
     with h5py.File(file_path.split(".")[0] + ".h5", "r") as f:
-        assert f["metadata"] is not None
-        assert f["info"] is not None
+        assert f["regions"] is not None
 
 
 def test_make_root_db_and_Database(audio_tree):
     make_root_db(audio_tree + "/test_db.h5", roots=audio_tree, extract_func=default_extract_func, n_cores=1)
 
     db = Database(audio_tree + "/test_db.h5")
-    assert db.metadata is not pd.DataFrame()
-    assert db.layout_for("fft") is not pd.DataFrame()
-    assert len(db.metadata) == 4, len(db.metadata)
+    assert db.regions is not pd.DataFrame()
+    assert len(db.regions) == 4, len(db.regions)
     assert np.any(db.fft[:4] != 0), db.fft[:4]
-    assert isinstance(db.fft.get(db.metadata.iloc[:1]), np.ndarray), db.fft.get(db.metadata.iloc[:1])
+    assert isinstance(db.fft.get(db.regions.iloc[:1]), np.ndarray), db.fft.get(db.regions.iloc[:1])
 
     # test Dataset Integration
     ds = DataObject(db.fft)

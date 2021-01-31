@@ -1,4 +1,4 @@
-__version__ = '0.1.9'
+__version__ = '0.1.10'
 
 from .kit import get_trainer
 from .connectors.neptune import NeptuneConnector

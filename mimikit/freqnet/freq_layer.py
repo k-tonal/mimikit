@@ -33,7 +33,6 @@ def concat(x, y, shift=1):
 
 
 class FreqLayer(nn.Module):
-    kernel_size = 2
     stride = 1
     bias = True
     sides = {1: 1, -1: -1, 0: 0, "left": 1, "right": -1}
@@ -44,6 +43,7 @@ class FreqLayer(nn.Module):
                  layer_dim=512,
                  groups=1,
                  strict=False,
+                 kernel_size=2,
                  accum_outputs=0,
                  concat_outputs=0,
                  pad_input=0,
@@ -57,6 +57,7 @@ class FreqLayer(nn.Module):
         self.layer_dim = layer_dim
         self.groups = groups
         self.strict = strict
+        self.kernel_size = kernel_size
         if pad_input != 0 and concat_outputs != 0:
             raise ValueError("pad_input and concat_outputs can not be both non zero")
         # accum and concat have opposite signs :
@@ -114,7 +115,7 @@ class FreqLayer(nn.Module):
 
     @property
     def dilation(self):
-        return 2 ** self.layer_index
+        return self.kernel_size ** self.layer_index
 
     @property
     def padding(self):
@@ -128,7 +129,7 @@ class FreqLayer(nn.Module):
         """
         amount of inputs necessary for 1 output (this is independent of the shift!)
         """
-        return 2 ** (self.layer_index + 1)
+        return self.kernel_size ** (self.layer_index + 1)
 
     def shift(self):
         """total shift at this layer wrt. to the beginning of its block"""
@@ -136,7 +137,7 @@ class FreqLayer(nn.Module):
 
     def rel_shift(self):
         """relative shift at this layer wrt. to the previous layer"""
-        return (int(self.strict) + self.receptive_field() // 2) if self.pad_input == 0 else int(self.strict)
+        return (int(self.strict) + (self.kernel_size - 1) * self.dilation) if self.pad_input == 0 else int(self.strict)
 
     def output_length(self, input_length):
         if abs(self.concat_outputs):

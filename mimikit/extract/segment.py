@@ -2,7 +2,7 @@ import numpy as np
 from librosa.segment import recurrence_matrix
 from librosa.util import localmax
 from scipy.ndimage import convolve
-from ..data.metadata import Metadata
+from ..data.regions import Regions
 
 
 def from_recurrence_matrix(X,
@@ -32,4 +32,4 @@ def from_recurrence_matrix(X,
     mx = mx * (np.diff(mx, append=R.shape[0]) >= min_dur)
     mx = mx[mx > 0]
     stops = np.r_[mx, R.shape[0]]
-    return Metadata.from_stop(stops)
+    return Regions.from_stop(stops)

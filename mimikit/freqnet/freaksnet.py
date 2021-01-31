@@ -17,6 +17,7 @@ class FreaksNet(FreqNet):
                  model_dim=512,
                  groups=((1, 1, 1),),
                  n_layers=(3,),
+                 kernel_size=((2, 2, 2),),
                  strict=((False, True, False),),
                  accum_outputs=((-1, 1, -1),),
                  concat_outputs=((1, -1, 1),),
@@ -32,6 +33,7 @@ class FreaksNet(FreqNet):
         self.groups = groups
         self.n_layers = n_layers
         self.strict = strict
+        self.kernel_size = kernel_size
         self.accum_outputs = accum_outputs
         self.concat_outputs = concat_outputs
         self.pad_input = pad_input

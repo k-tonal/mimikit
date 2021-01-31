@@ -7,7 +7,7 @@ from .base import FreqNetModel
 
 
 class FreqNet(FreqNetModel):
-    LAYER_KWARGS = ["groups", "strict", "accum_outputs", "concat_outputs",
+    LAYER_KWARGS = ["groups", "strict", "accum_outputs", "concat_outputs", "kernel_size",
                     "pad_input", "learn_padding", "with_skip_conv", "with_residual_conv"]
 
     def __init__(self,
@@ -15,6 +15,7 @@ class FreqNet(FreqNetModel):
                  model_dim=512,
                  groups=1,
                  n_layers=(2,),
+                 kernel_size=2,
                  strict=False,
                  accum_outputs=0,
                  concat_outputs=0,
@@ -28,6 +29,7 @@ class FreqNet(FreqNetModel):
         self.model_dim = model_dim
         self.groups = groups
         self.n_layers = n_layers
+        self.kernel_size = kernel_size
         self.strict = strict
         self.accum_outputs = accum_outputs
         self.concat_outputs = concat_outputs

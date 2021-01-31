@@ -21,6 +21,10 @@ class LayerWiseLossFreqNet(FreqNet):
             return tuple(outputs)
         # else redirect to a special method for inference
         return self.infer_layer_wise(outputs)
+    
+    def training_step(self, batch, batch_idx):
+        batch = batch[0], batch[1:]
+        return super(LayerWiseLossFreqNet, self).training_step(batch, batch_idx)
 
     def infer_layer_wise(self, outputs):
         """

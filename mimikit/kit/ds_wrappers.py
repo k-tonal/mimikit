@@ -40,9 +40,7 @@ class ShiftedSeqsPair(DSWrapper):
         @param targets: [(shift, length)... ]
         @param stride:
         """
-        self.input_length = input_length
-        self.shifts = list(zip(*targets))[0]
-        self.lengths = list(zip(*targets))[1]
+        self.shifts, self.lengths = list(zip(*[(0, input_length), *targets]))
         self.stride = stride
         self.N = None
 
@@ -52,16 +50,13 @@ class ShiftedSeqsPair(DSWrapper):
         return super(ShiftedSeqsPair, self).__call__(dataset)
 
     def __len__(self):
-        ln = (self.N - max(self.lengths) - max(self.shifts) + 1) // self.stride
+        ln = (self.N - max(shift + ln for shift, ln in zip(self.shifts, self.lengths)) + 1) // self.stride
         return ln
 
     def __getitem__(self, item):
         i = item * self.stride
-        input_slice = slice(i, i + self.input_length)
-        target_slices = [slice(i + shift, i + shift + length)
+        items_slices = [slice(i + shift, i + shift + length)
                          for shift, length in zip(self.shifts, self.lengths)]
-        inputs = self.data[input_slice]
-        targets = tuple(self.data[idx] for idx in target_slices)
-        return inputs, targets[0] if len(targets) == 1 else targets
+        return tuple(self.data[idx] for idx in items_slices)
 
 

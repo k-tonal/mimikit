@@ -8,11 +8,11 @@ def ssts(item, axis=0):
     return slices
 
 
-class Metadata(pd.DataFrame):
+class Regions(pd.DataFrame):
     """
     subclass of ``pandas.DataFrame`` to store a slice structure. This is handy when concatenating arrays
 
-    Instances of ``Metadata`` created by the constructors mentioned below will automatically have
+    Instances of ``Regions`` created by the constructors mentioned below will automatically have
     three columns : "start", "stop", "duration".
 
     :no-inherited-members:
@@ -20,7 +20,7 @@ class Metadata(pd.DataFrame):
 
     @property
     def _constructor(self):
-        return Metadata
+        return Regions
 
     @staticmethod
     def _validate(obj):
@@ -85,7 +85,7 @@ class Metadata(pd.DataFrame):
 
     @staticmethod
     def from_start_stop(starts, stops, durations):
-        return Metadata((starts, stops, durations), index=["start", "stop", "duration"]).T
+        return Regions((starts, stops, durations), index=["start", "stop", "duration"]).T
 
     @staticmethod
     def from_stop(stop):
@@ -100,25 +100,25 @@ class Metadata(pd.DataFrame):
         else:
             starts = np.r_[0, stop[:-1]]
         durations = stop - starts
-        return Metadata.from_start_stop(starts, stop, durations)
+        return Regions.from_start_stop(starts, stop, durations)
 
     @staticmethod
     def from_duration(duration):
         stops = np.cumsum(duration)
         starts = np.r_[0, stops[:-1]]
-        return Metadata.from_start_stop(starts, stops, duration)
+        return Regions.from_start_stop(starts, stops, duration)
 
     @staticmethod
     def from_data(sequence, time_axis=1):
         duration = np.array([x.shape[time_axis] for x in sequence])
-        return Metadata.from_duration(duration)
+        return Regions.from_duration(duration)
 
     @staticmethod
     def from_frame_definition(total_duration, frame_length, stride=1, butlasts=0):
         starts = np.arange(total_duration - frame_length - butlasts + 1, step=stride)
         durations = frame_length + np.zeros_like(starts, dtype=np.int)
         stops = starts + durations
-        return Metadata.from_start_stop(starts, stops, durations)
+        return Regions.from_start_stop(starts, stops, durations)
 
 
 @pd.api.extensions.register_dataframe_accessor("soft_q")

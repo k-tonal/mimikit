@@ -48,11 +48,11 @@ class TestShiftedSeqsPair:
         # returns input and target
         assert len(returned) == 2, returned
         # returns correct input shape
-        assert returned[0].shape == (self.wrapper.input_length, self.data.shape[-1]), returned[0].shape
+        assert returned[0].shape == (self.wrapper.lengths[0], self.data.shape[-1]), returned[0].shape
         # returns correct target shape
-        assert returned[1].shape == (self.wrapper.lengths[0], self.data.shape[-1]), returned[1].shape
+        assert returned[1].shape == (self.wrapper.lengths[1], self.data.shape[-1]), returned[1].shape
         # shifts sequences correctly
-        assert np.all(returned[0][self.wrapper.shifts] == returned[1][0]), (returned[0][self.wrapper.shifts],
+        assert np.all(returned[0][self.wrapper.shifts[1]] == returned[1][0]), (returned[0][self.wrapper.shifts[1]],
                                                                             returned[1][0])
 
     def test_overrides_len(self):
