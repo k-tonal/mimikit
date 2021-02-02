@@ -35,9 +35,9 @@ import sphinx_rtd_theme
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx_rtd_theme',
-    # "numpydoc",
-    "sphinx.ext.napoleon",
-    "sphinx.ext.autosummary"
+    "numpydoc",
+    # "sphinx.ext.napoleon",
+    # "sphinx.ext.autosummary"
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -65,9 +65,9 @@ autoclass_content = "class"
 
 autodoc_default_flags = ['no-undoc-members']
 
-autosummary_generate = False
+autosummary_generate = True
 
-numpydoc_show_class_members = True
+numpydoc_show_class_members = False
 
 napoleon_use_ivar = False
 

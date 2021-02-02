@@ -19,18 +19,18 @@ class FeatureProxy(object):
 
     Parameters
     ----------
-    h5_file : ``str``
+    h5_file : str
         name of the file
-    ds_name : ``str``
+    ds_name : str
         name of the ``h5py.Dataset`` containing the data to be served
 
     Attributes
     ----------
-    N : ``int``
+    N : int
         the length of the first dimension of the underlying array
-    shape : ``tuple`` of ``int``
+    shape : tuple of int
         the shape of the underlying array
-    attrs : ``dict``
+    attrs : dict
         dictionary of additional information about the data as returned
         by the ``extract_func`` passed to ``make_root_db``.
         Typically, this is where you want to store the parameters of your extracting function, e.g.
@@ -55,18 +55,18 @@ class FeatureProxy(object):
             rv = f[self.name][item]
         return rv
 
-    def get(self, regions):
+    def get(self, regions: Regions):
         """
         get the data (numpy array) corresponding to the rows of ``regions``
 
         Parameters
         ----------
-        regions : ``Regions``
+        regions : Regions
             the files you want to get as array
 
         Returns
         -------
-        data : ``np.ndarray``
+        data : np.ndarray
             the concatenated data for all the requested files
 
         Example
@@ -83,19 +83,19 @@ class FeatureProxy(object):
         slices = regions.slices(t_axis)
         return np.concatenate(tuple(self[slice_i] for slice_i in slices), axis=t_axis)
 
-    def add(self, array, filename=None):
+    def add(self, array: np.ndarray, filename: str = None):
         """
         EXPERIMENTAL! append ``array`` to the feature and fill the ``"name"`` column of ``db.regions`` with 'filename'
         Parameters
         ----------
-        array : ``np.ndarray``
+        array : np.ndarray
             the array to append at the end of the feature
-        filename : ``str``, optional
+        filename : str, optional
             a name for the array being added
 
         Returns
         -------
-        new : ``FeatureProxy``
+        new : FeatureProxy
             the updated object
         """
         new = _add_data(self.h5_file, self.name, array, filename)
@@ -107,13 +107,13 @@ class FeatureProxy(object):
 
         Parameters
         ----------
-        indices : ``Regions`` or any object that ``Subset`` accepts as indices
+        indices : Regions or any object that Subset accepts as indices
             if ``indices`` is of type ``Regions``, the returned ``Subset`` will only contain the files (rows) present
             in ``indices``.
 
         Returns
         -------
-        subset : ``torch.utils.data.Subset``
+        subset : torch.utils.data.Subset
             the obtained subset
         """
         if isinstance(indices, Regions):
@@ -127,12 +127,12 @@ class FeatureProxy(object):
 
         Parameters
         ----------
-        indices : ``list`` of ``ints``
+        indices : list of ints
             correspond to the rows of ``db.regions`` you want to keep
 
         Returns
         -------
-        subset : ``torch.utils.data.Subset``
+        subset : torch.utils.data.Subset
             the obtained subset
 
         Example
@@ -156,16 +156,16 @@ class Database(object):
 
     Parameters
     ----------
-    h5_file : ``str``
+    h5_file : str
         path to the .h5 file containing the data
 
     Attributes
     ----------
-    regions : ``Regions``
+    regions : Regions
         pandas DataFrame where each row contains information about one stored file.
         see ``Regions`` for more information
 
-    <feature_proxy> : ``FeatureProxy``
+    <feature_proxy> : FeatureProxy
         each feature created by the extracting function passed to ``make_root_db``
         is automatically added as attribute to ``Database`` instances loading the .h5 file.
         For instance, if the extracting function returned a feature by the name ``"fft"``,
@@ -203,20 +203,20 @@ class Database(object):
         except KeyError:
             return pd.DataFrame()
 
-    def save_dataframe(self, key, df):
+    def save_dataframe(self, key: str, df: pd.DataFrame):
         """
         stores a ``pd.DataFrame`` object under ``key``
 
         Parameters
         ----------
-        key : ``str``
+        key : str
             the key under which ``df`` will be stored
         df : pd.DataFrame
             the ``DataFrame`` to be stored
 
         Returns
         -------
-        df : ``pd.DataFrame``
+        df : pd.DataFrame
             the ``DataFrame`` as it has been stored
         """
         with h5py.File(self.h5_file, "r+") as f:
@@ -263,13 +263,13 @@ def _add_data(h5_file, ds_name, array, filename):
 
     Parameters
     ----------
-    h5_file : ``str``
+    h5_file : str
         path to the file
-    ds_name : ``str``
+    ds_name : str
         name of the ``h5py.Dataset`` to which ``array`` will be added
     array : np.ndarray
         the array to add
-    filename : ``str``
+    filename : str
         a name for the array in ``db.regions``
 
     Returns

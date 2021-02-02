@@ -22,8 +22,36 @@ class FreqOptim:
     simple class to modularize the optimization setup used in a ``FreqNetModel``.
 
     Here the method ``configure_optimizers()`` returns an ``Adam`` optimizer and a slightly modified
-    ``OneCycleLR`` scheduler (the only modification being that it won't raise a ``ValueError`` if you use for more
-    steps than what it expects and will instead restarts its cycle)
+    ``OneCycleLR`` scheduler (the only modification being that it won't raise a ``ValueError`` if you perform more steps
+    than what it expects and will instead restarts its cycle)
+
+    Parameters
+    ----------
+    model: pl.LightningModule
+        the model to be optimized
+    max_lr: float, optional
+        the maximum learning rate of the schedule.
+        Default is ``1e-3``
+    betas: tuple of floats between 0. and 1., optional
+        the betas coefficients for the Adam optimizer.
+        Default is ``(0.9, 0.9)``
+    div_factor: float, optional
+        the initial learning rate will ``max_lr / div_factor``
+        Default is ``3.``
+    final_div_factor: float
+        the final learning rate will be ``(max_lr / div_factor) / final_div_factor``
+        Default is ``1.``
+    pct_start: float, optional
+        proportion of the training regimen used for the first training phase.
+        Default is ``0.25.``
+    cycle_momentum: bool, optional
+        whether to also cycle momentum.
+        Default is ``False``.
+
+    References
+    ----------
+    - `Adam <https://pytorch.org/docs/stable/optim.html#torch.optim.Adam>`_
+    - `OneCycleLR <https://pytorch.org/docs/stable/optim.html#torch.optim.lr_scheduler.OneCycleLR>`_
     """
     def __init__(self,
                  model,
@@ -64,6 +92,27 @@ class FreqData(LightningDataModule):
     the data is passed through ``data_object``, wrapped in a ``ShiftedSeqsPair`` in ``prepare_data()`` and
     in ``setup("fit")`` it is moved to the gpu if ``to_gpu`` is ``True`` and split into train, val and test sets
     according to ``splits``
+
+    Parameters
+    ----------
+    model: FreqNetModel
+        the model that will consume this data for training
+    data_object: DataObject
+        the data
+    input_seq_length: int, optional
+        number of time-steps in the input-sequences of each batch
+        Default is ``64``.
+    batch_size: int, optional
+        number of sequences per batch.
+        Default is ``64``.
+    to_gpu: bool, optional
+        whether to allocate all the data to the gpu prior to training.
+        Default is ``True``.
+    splits: list of floats or ints
+        proportions for train-, val- and test-sets.
+    loader_kwargs
+        additional keyword arguments for the ``Dataloaders``.
+
     """
     def __init__(self,
                  model,

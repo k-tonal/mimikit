@@ -62,7 +62,7 @@ class FreqNet(FreqNetModel):
     Notes
     -----
     .. note::
-        # On sides
+        On sides.
         Because convolution layers as they are used in ``FreqNet`` outputs less time-steps than they receive as input,
         applying techniques such as residuals or padding is only possible when one specifies how inputs and outputs are
         supposed to be aligned.

@@ -9,10 +9,10 @@ from pytorch_lightning.trainer import Trainer
 import warnings
 
 
-def get_trainer(root_dir=None,
-                version=None,
-                resume_from_checkpoint=None,
-                epochs=None,  # add MMKCheckpoint if not None
+def get_trainer(root_dir: str = None,
+                version: int = None,
+                resume_from_checkpoint: str = None,
+                epochs= None,  # add MMKCheckpoint if not None
                 model=None,
                 neptune_connector=None,
                 **kwargs):
@@ -22,26 +22,26 @@ def get_trainer(root_dir=None,
     Parameters
     ----------
 
-    root_dir : ``str``, optional
+    root_dir : str, optional
         the directory where all the files created during training will be saved. If ``None`` it defaults to ``'./'``.
-    version : ``int``, optional
+    version : int, optional
         an optional version number. This creates a sub-directory structure of the form ``root_dir/version_i/``
 
         - the value ``-1`` creates a new version dynamically by finding the greatest
           version number in ``root_dir`` and adding ``1``.
         - any other specific ``int`` creates/overwrites the version for this ``int``.
         - ``None`` bypasses versioning
-    resume_from_checkpoint : ``str``, optional
+    resume_from_checkpoint : str, optional
         path to a checkpoint you want to resume training from.
-    epochs : ``int`` or ``list`` of ``ints``, optional
-        - if ``int`` : checkpoints will be saved every int epochs
-        - if ``list`` of ``ints`` : checkpoints will be saved at those specific ints
+    epochs : int or list of ints, optional
+        - if ``epochs=i`` : checkpoints will be saved every ``i`` epochs
+        - if ``epochs=[i1, i2, i3, ...]`` : checkpoints will be saved at those specific ``i``
 
         > Note : a final checkpoint will always be saved at the end of the training and if you interrupt the training manually with a ``KeyboardInterrupt``.
 
-    model : ``pytorch_lightning.LightningModule``, optional
+    model : pytorch_lightning.LightningModule, optional
         the model you will train. Only required when ``neptune_connector`` is not ``None``
-    neptune_connector : ``NeptuneConnector``, optional
+    neptune_connector : NeptuneConnector, optional
         if this argument is set, ``neptune_connector`` is expected to have a ``"model"`` key in its ``setup`` attribute
         in order to bind the model with a neptune experiment.
         If the value associated to the ``"model"`` key contains no experiment-id, a new experiment will be created.
@@ -52,7 +52,7 @@ def get_trainer(root_dir=None,
 
     Returns
     -------
-    trainer : ``pytorch_lightning.Trainer``
+    trainer : pytorch_lightning.Trainer
 
     Raises
     ------
